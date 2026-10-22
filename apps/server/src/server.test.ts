@@ -150,6 +150,22 @@ describe('multiplayer transport', () => {
       ).status,
     ).toBe(403);
   });
+  it('returns structured errors for broken JSON and oversized requests without creating a room', async () => {
+    for (const [body, status] of [
+      ['{ broken', 400],
+      [JSON.stringify({ config, padding: 'x'.repeat(5000) }), 413],
+    ] as const) {
+      const response = await fetch(`${endpoint}/api/tables`, {
+        method: 'POST',
+        headers: { Origin: origin, 'Content-Type': 'application/json' },
+        body,
+      });
+      expect(response.status).toBe(status);
+      expect(errorSchema.parse(await response.json()).code).toBe(
+        'INVALID_MESSAGE',
+      );
+    }
+  });
   it('rejects wrong versions and wrong admission codes', async () => {
     const table = await create();
     await expect(

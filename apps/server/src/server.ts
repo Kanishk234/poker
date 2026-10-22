@@ -1,7 +1,11 @@
 import { createServer } from 'node:http';
 import { randomInt, randomUUID } from 'node:crypto';
 import { createRouter, matchMaker, Server } from '@colyseus/core';
-import express from 'express';
+import express, {
+  type NextFunction,
+  type Request,
+  type Response,
+} from 'express';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import {
   createTableSchema,
@@ -48,15 +52,38 @@ export function createGameServer(allowedOrigins: string[]): {
         next();
       });
       app.use('/api', express.json({ limit: '4kb' }));
+      app.use(
+        '/api',
+        (
+          error: unknown,
+          _request: Request,
+          response: Response,
+          next: NextFunction,
+        ) => {
+          if (response.headersSent) {
+            next(error);
+            return;
+          }
+          const tooLarge =
+            typeof error === 'object' &&
+            error !== null &&
+            'type' in error &&
+            error.type === 'entity.too.large';
+          response.status(tooLarge ? 413 : 400).json({
+            code: 'INVALID_MESSAGE',
+            message: tooLarge
+              ? 'The request is too large.'
+              : 'Send a valid JSON request.',
+          });
+        },
+      );
       app.post('/api/tables', async (request, response) => {
         const parsed = createTableSchema.safeParse(request.body);
         if (!parsed.success) {
-          response
-            .status(400)
-            .json({
-              code: 'INVALID_MESSAGE',
-              message: 'Choose valid table settings.',
-            });
+          response.status(400).json({
+            code: 'INVALID_MESSAGE',
+            message: 'Choose valid table settings.',
+          });
           return;
         }
         // Claim the code before awaiting room creation so concurrent requests cannot collide.
@@ -81,12 +108,10 @@ export function createGameServer(allowedOrigins: string[]): {
             .json({ code, roomId: room.roomId, creatorToken });
         } catch {
           rooms.delete(code);
-          response
-            .status(503)
-            .json({
-              code: 'SERVER_UNAVAILABLE',
-              message: 'The table could not be created. Try again.',
-            });
+          response.status(503).json({
+            code: 'SERVER_UNAVAILABLE',
+            message: 'The table could not be created. Try again.',
+          });
         }
       });
       app.get('/api/tables/:code', async (request, response) => {
@@ -103,12 +128,10 @@ export function createGameServer(allowedOrigins: string[]): {
           }
           rooms.delete(code.data!);
         }
-        response
-          .status(404)
-          .json({
-            code: 'TABLE_NOT_FOUND',
-            message: 'That room is closed or the code is incorrect.',
-          });
+        response.status(404).json({
+          code: 'TABLE_NOT_FOUND',
+          message: 'That room is closed or the code is incorrect.',
+        });
       });
       app.get('/health', (_request, response) => {
         response.json({
