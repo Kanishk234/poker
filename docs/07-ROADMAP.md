@@ -20,8 +20,8 @@ Local validation (2026-10-22): typecheck, lint, six tests, production build, and
 ## M1 - Engine (spec: 03-GAME-ENGINE)
 - [x] Cards, deck, injected RNG, Fisher-Yates shuffle (CSPRNG adapter for prod)
 - [x] Hand evaluator (best 5 of 7) with tests incl. wheel and kickers
-- [ ] Table state, seating, button/blinds (incl. heads-up rules)
-- [ ] Betting rounds: legal actions, min-raise tracking, all-in handling, reopen logic
+- [x] Table state, seating, button/blinds (incl. heads-up rules)
+- [x] Betting rounds: legal actions, min-raise tracking, all-in handling, reopen logic
 - [ ] Street progression, run-out when all-in, showdown
 - [ ] Pots: main/side pots, uncalled return, split pots, odd chip
 - [ ] Timeouts, sit-out, busted/rebuy, leave mid-hand
@@ -31,6 +31,8 @@ Local validation (2026-10-22): typecheck, lint, six tests, production build, and
 - [ ] (Optional/slow) 7-card category distribution test
 
 First M1 task group (2026-10-22): cards, shuffling, evaluation, and server CSPRNG adapter implemented. 39 quick tests pass repo-wide; current engine modules have 100% lines/branches/functions/statements coverage. Property tests cover 10,000 seeded shuffles and 10,000 best-of-seven inputs. An exhaustive audit of all 2,598,960 five-card combinations matches category frequencies and distinct rank counts. These are foundation tests, not the 10,000 complete-hand simulations required below. Table state/betting/pots/views and full M1 acceptance remain unfinished.
+
+Second M1 task group: implemented immutable seating/configuration, button rotation, heads-up and short blinds, betting actions, all-in calls, minimum raises, per-player cumulative reopening, and betting-street completion boundaries. Added 10,000 seeded betting simulations covering legal-action acceptance, chip conservation, nonnegative integer ledgers, immutability, bounded termination, and deterministic states/events. 78 quick tests pass; engine lines/branches/functions/statements coverage is 100%; typecheck, lint, exhaustive evaluator audit, build, and production dependency audit pass. No cards are dealt or pots awarded by these simulations; complete hand/lifecycle and hidden-info acceptance remain open. No new dependencies or network contract changes.
 
 **Accept:** all unit + property tests pass; fuzz of 10,000 seeded hands has zero invariant violations; hidden-info test passes; coverage >= 90% for the engine.
 
