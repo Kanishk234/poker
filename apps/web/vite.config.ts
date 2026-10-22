@@ -35,5 +35,31 @@ export default defineConfig({
       },
     }),
   ],
-  server: { port: 5173, strictPort: true },
+  server: {
+    port: 5173,
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:2567',
+        configure(proxy) {
+          proxy.on('proxyReq', (request) =>
+            request.setHeader('Origin', 'http://localhost:5173'),
+          );
+        },
+      },
+      '/colyseus': {
+        target: 'http://127.0.0.1:2567',
+        ws: true,
+        rewrite: (path) => path.replace(/^\/colyseus/, ''),
+        configure(proxy) {
+          proxy.on('proxyReq', (request) =>
+            request.setHeader('Origin', 'http://localhost:5173'),
+          );
+          proxy.on('proxyReqWs', (request) =>
+            request.setHeader('Origin', 'http://localhost:5173'),
+          );
+        },
+      },
+    },
+  },
 });

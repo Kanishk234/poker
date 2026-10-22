@@ -7,7 +7,7 @@ export function ActionBar({
   onRaise,
 }: {
   legal: LegalActions;
-  onAction: (description: string) => void;
+  onAction: (action: 'fold' | 'check' | 'call' | 'allin') => void;
   onRaise: () => void;
 }) {
   return (
@@ -21,9 +21,7 @@ export function ActionBar({
       </button>
       <button
         className="action-button"
-        onClick={() =>
-          onAction(legal.canCheck ? 'check' : `call ${legal.callAmount}`)
-        }
+        onClick={() => onAction(legal.canCheck ? 'check' : 'call')}
       >
         {legal.canCheck ? (
           'Check'
@@ -40,7 +38,7 @@ export function ActionBar({
       ) : legal.canAllIn ? (
         <button
           className="action-button raise-button"
-          onClick={() => onAction(`all-in ${legal.maxRaiseTo}`)}
+          onClick={() => onAction('allin')}
         >
           All-in
         </button>

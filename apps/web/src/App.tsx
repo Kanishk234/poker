@@ -3,6 +3,8 @@ import { roomCodeSchema } from '@felt/shared';
 import { TablePreview } from './table/TablePreview.js';
 import { Card } from './table/components.js';
 import { Dialog } from './ui/Dialog.js';
+import { RoomEntry } from './live/LiveTable.js';
+import { createLiveTable } from './live/connection.js';
 
 function storedName(): string {
   try {
@@ -16,6 +18,7 @@ export function App() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
+  const [creating, setCreating] = useState(false);
   const create = location.pathname === '/create';
   function rememberName(value: string) {
     setName(value);
@@ -26,6 +29,15 @@ export function App() {
     }
   }
   if (location.pathname === '/dev/table') return <TablePreview />;
+  const roomPath = /^\/t\/([^/]+)\/?$/.exec(location.pathname);
+  if (roomPath)
+    return (
+      <RoomEntry
+        code={roomPath[1]!.toUpperCase()}
+        initialName={name}
+        onName={rememberName}
+      />
+    );
   return (
     <main className="home-shell">
       <header className="masthead">
@@ -47,17 +59,34 @@ export function App() {
           <p className="intro">Keep it casual. Make yourself at home.</p>
           <form
             className="create-form"
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault();
+              if (creating) return;
               const form = new FormData(event.currentTarget);
-              const params = new URLSearchParams({
-                scene: 'flop',
-                players: String(form.get('seats')),
-                stack: String(form.get('stack')),
-                blinds: String(form.get('blinds')),
-                timer: String(form.get('timer')),
-              });
-              location.assign(`/dev/table?${params}`);
+              const [smallBlind, bigBlind] = String(form.get('blinds'))
+                .split('/')
+                .map(Number);
+              setCreating(true);
+              setMessage('');
+              try {
+                const table = await createLiveTable({
+                  maxSeats: Number(form.get('seats')),
+                  smallBlind: smallBlind!,
+                  bigBlind: bigBlind!,
+                  minBuyIn: Number(form.get('stack')),
+                  maxBuyIn: Number(form.get('stack')) * 5,
+                  actionSeconds: Number(form.get('timer')),
+                  assistAllowed: false,
+                });
+                location.assign(`/t/${table.code}`);
+              } catch (error) {
+                setMessage(
+                  error instanceof Error
+                    ? error.message
+                    : 'Cannot create a table. Try again.',
+                );
+                setCreating(false);
+              }
             }}
           >
             <label>
@@ -108,10 +137,15 @@ export function App() {
               </label>
             </div>
             <p className="quiet-note">
-              This is a design preview. Creating live rooms is coming soon.
+              {message ||
+                'Play chips only. Share your room code when you’re ready.'}
             </p>
-            <button className="button primary" type="submit">
-              Preview table
+            <button
+              className="button primary"
+              type="submit"
+              disabled={creating}
+            >
+              {creating ? 'Creating your table…' : 'Create table'}
             </button>
           </form>
         </section>
@@ -157,11 +191,13 @@ export function App() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              setMessage(
-                roomCodeSchema.safeParse(code.trim().toUpperCase()).success
-                  ? 'That code has the right format. Live rooms are coming soon; explore the sample table below.'
-                  : 'Use six letters or numbers. Codes don’t contain 0, O, 1, or I.',
-              );
+              const normalized = code.trim().toUpperCase();
+              if (roomCodeSchema.safeParse(normalized).success && name.trim())
+                location.assign(`/t/${normalized}`);
+              else
+                setMessage(
+                  'Use six letters or numbers. Codes don’t contain 0, O, 1, or I.',
+                );
             }}
           >
             <label>
@@ -194,10 +230,10 @@ export function App() {
               />
             </label>
             <p id="join-message" className="quiet-note" role="status">
-              {message || 'Preview only. No live room will be joined yet.'}
+              {message || 'Ask your friend for their six-character room code.'}
             </p>
             <button className="button primary" type="submit">
-              Check code
+              Join table
             </button>
             <a className="text-link centered" href="/dev/table">
               Explore a sample table

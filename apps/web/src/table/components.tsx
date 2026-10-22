@@ -67,7 +67,7 @@ export function TimerRing({
       className="timer-ring"
       viewBox="0 0 48 48"
       role="img"
-      aria-label={`${seconds} seconds remaining in this sample`}
+      aria-label={`${seconds} seconds remaining`}
     >
       <circle cx="24" cy="24" r="22" />
       <circle

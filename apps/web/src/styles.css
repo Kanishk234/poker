@@ -1,5 +1,174 @@
 @import 'tailwindcss';
 
+.live-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  font-size: 12px;
+}
+.live-toolbar .text-link {
+  margin: 0;
+  padding: 0 12px;
+  min-height: 44px;
+  background: transparent;
+}
+.connection-dot {
+  color: var(--muted);
+}
+.connection-dot::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b9d5c9;
+  margin-right: 8px;
+}
+.connection-dot.offline::before {
+  background: #e4c1b0;
+}
+.empty-seat {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  width: 68px;
+  min-height: 72px;
+  padding: 8px;
+  background: #141519;
+  border: 1px dashed #34323d;
+  border-radius: 18px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.empty-seat > span:first-child {
+  font-size: 24px;
+  line-height: 28px;
+  color: var(--accent);
+}
+.empty-seat:disabled {
+  opacity: 0.55;
+}
+.lobby-center {
+  text-align: center;
+}
+.lobby-center > span,
+.room-code-card > span {
+  display: block;
+  font-size: 12px;
+}
+.lobby-center > strong,
+.room-code-card > strong {
+  display: block;
+  font-size: 34px;
+  letter-spacing: 5px;
+  font-weight: 500;
+  margin: 10px 0;
+  color: var(--accent);
+}
+.lobby-center > p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.live-actions {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.live-actions > .button {
+  width: 100%;
+}
+.live-table .your-seat > .button {
+  width: 100%;
+}
+.error-notice {
+  color: #e4c1b0;
+}
+.spectator-seat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  font-size: 12px;
+}
+.room-code-card {
+  margin-top: 20px;
+}
+.table-menu {
+  display: grid;
+  gap: 10px;
+}
+.chat-messages {
+  max-height: 32dvh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  margin: 16px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  user-select: text;
+}
+.chat-messages strong {
+  color: var(--accent);
+  font-weight: 500;
+  margin-right: 6px;
+}
+.connection-screen {
+  justify-content: center;
+  max-width: 480px;
+  gap: 16px;
+}
+.connection-screen h1 {
+  font-size: 42px;
+}
+.connection-screen .button {
+  width: 100%;
+}
+.live-table .quiet-note {
+  overflow-wrap: anywhere;
+}
+@keyframes live-deal {
+  from {
+    opacity: 0.2;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes live-award {
+  from {
+    color: #fff;
+    transform: scale(1.04);
+  }
+  to {
+    color: var(--accent);
+    transform: scale(1);
+  }
+}
+.live-board,
+.live-hole {
+  animation: live-deal 0.25s ease-out;
+}
+.cue-award {
+  color: var(--accent);
+  animation: live-award 0.4s ease-out;
+}
+.cue-bet {
+  animation: live-deal 0.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-board,
+  .live-hole,
+  .live-cue {
+    animation: none;
+  }
+}
+
 :root {
   font-family: 'Avenir Next', Avenir, 'Segoe UI', sans-serif;
   color: #f5f5f7;

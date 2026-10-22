@@ -59,14 +59,16 @@ M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 player
 
 ## M3 - Multiplayer wiring (spec: 04-PROTOCOL)
 
-- [ ] Shared zod schemas for all messages; `TableView`/`TableEvent` types
-- [ ] `POST /api/tables`, invite code generation, `/t/:code` join flow
-- [ ] Table room: validates intents, calls engine, broadcasts per-seat `update` with `seq`
-- [ ] Server-side action timers, auto check/fold, next-hand scheduling
-- [ ] Web client: connection hook, state from latest `update`, send intents
-- [ ] Sit/stand, buy-in, host start, basic chat
-- [ ] Event queue for animations (deal, bet, award)
-- [ ] Integration test: 3 headless clients play a full hand; assert no hidden-card leaks
+- [x] Shared zod schemas for all messages; `TableView`/`TableEvent` types
+- [x] `POST /api/tables`, invite code generation, `/t/:code` join flow
+- [x] Table room: validates intents, calls engine, broadcasts per-seat `update` with `seq`
+- [x] Server-side action timers, auto check/fold, next-hand scheduling
+- [x] Web client: connection hook, state from latest `update`, send intents
+- [x] Sit/stand, buy-in, host start, basic chat
+- [x] Event queue for animations (deal, bet, award)
+- [x] Integration test: 3 headless clients play a full hand; assert no hidden-card leaks
+
+M3 validation (2026-10-22): three real WebSocket clients play through showdown with exact chips, private recipient deals, stale-tap rejection, malformed/unknown intent rejection and host checks. A real five-second deadline auto-folds and schedules hand two. Three separate mobile browser contexts create/join by code, buy in, start, check/call through all streets, reveal showdown and send literal-text chat. Screenshots/geometry reviewed at 390x844 and 320x844, including the nine-seat lobby: no horizontal scroll, overlapping seats or controls under 44px. Fixed an abandoned StrictMode connection consuming host admission. No new dependencies. Physical two-phone gameplay, reconnect/seat recovery and public deployment remain unverified/M4/M7 work.
 
 **Accept:** two phones (or phone + browser) can create, join via link, and play full hands to showdown with correct pots.
 
