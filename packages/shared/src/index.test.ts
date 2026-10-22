@@ -1,28 +1,91 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import {
-  helloIntentSchema,
-  probeJoinSchema,
+  joinSchema,
+  intentSchemas,
   PROTOCOL_VERSION,
   roomCodeSchema,
   ROOM_CODE_ALPHABET,
+  createTableSchema,
 } from './index.js';
 
-describe('bootstrap protocol', () => {
+describe('gameplay protocol', () => {
+  it('validates every intent and rejects forged identity, fractional chips, unknown fields and unbounded input', () => {
+    const valid = {
+      sit: { seat: 0, buyIn: 100 },
+      stand: {},
+      action: {
+        handId: 'hand-1',
+        turnId: 'hand-1:0',
+        type: 'raise',
+        amount: 20,
+      },
+      sitOut: {},
+      sitIn: {},
+      rebuy: { amount: 100 },
+      chat: { text: 'hello' },
+      host: { op: 'start' },
+      resync: { lastSeq: 0 },
+    };
+    for (const type of Object.keys(
+      intentSchemas,
+    ) as (keyof typeof intentSchemas)[]) {
+      expect(intentSchemas[type].safeParse(valid[type]).success).toBe(true);
+      expect(
+        intentSchemas[type].safeParse({ ...valid[type], playerId: 'forged' })
+          .success,
+      ).toBe(false);
+      for (const payload of [null, [], 'bad'])
+        expect(intentSchemas[type].safeParse(payload).success).toBe(false);
+    }
+    for (const payload of [
+      { seat: 9, buyIn: 100 },
+      { seat: 0, buyIn: 1.5 },
+      { seat: 0, buyIn: Number.MAX_SAFE_INTEGER + 1 },
+    ])
+      expect(intentSchemas.sit.safeParse(payload).success).toBe(false);
+    for (const payload of [
+      { handId: 'h', turnId: 't', type: 'fold', amount: 10 },
+      { handId: 'h', turnId: 't', type: 'raise' },
+      { handId: 'h', turnId: 't', type: 'raise', amount: -1 },
+    ])
+      expect(intentSchemas.action.safeParse(payload).success).toBe(false);
+    expect(
+      createTableSchema.safeParse({
+        config: {
+          maxSeats: 2,
+          smallBlind: 1,
+          bigBlind: 2,
+          minBuyIn: 100,
+          maxBuyIn: Number.MAX_SAFE_INTEGER,
+          actionSeconds: 30,
+          assistAllowed: false,
+        },
+      }).success,
+    ).toBe(false);
+  });
   it('rejects mismatched versions and extra fields', () => {
     expect(
-      probeJoinSchema.safeParse({ protocol: PROTOCOL_VERSION }).success,
+      joinSchema.safeParse({
+        protocol: PROTOCOL_VERSION,
+        code: 'ABCDEF',
+        displayName: 'Friend',
+      }).success,
     ).toBe(true);
     expect(
-      probeJoinSchema.safeParse({ protocol: PROTOCOL_VERSION + 1 }).success,
+      joinSchema.safeParse({
+        protocol: PROTOCOL_VERSION + 1,
+        code: 'ABCDEF',
+        displayName: 'Friend',
+      }).success,
     ).toBe(false);
     expect(
-      helloIntentSchema.safeParse({ text: 'hello', cards: ['As'] }).success,
+      intentSchemas.chat.safeParse({ text: 'hello', cards: ['As'] }).success,
     ).toBe(false);
-    expect(helloIntentSchema.safeParse({ text: ' ' }).success).toBe(false);
-    expect(helloIntentSchema.safeParse({ text: 'x'.repeat(81) }).success).toBe(
-      false,
-    );
+    expect(intentSchemas.chat.safeParse({ text: ' ' }).success).toBe(false);
+    expect(
+      intentSchemas.chat.safeParse({ text: 'x'.repeat(201) }).success,
+    ).toBe(false);
   });
 
   it('accepts six-character room codes from the unambiguous alphabet', () => {
