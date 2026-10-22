@@ -2,6 +2,18 @@
 
 Package: `packages/engine`. Pure TypeScript, no I/O, deterministic given an injected `rng`.
 
+## Implementation status — cards and evaluation
+
+The first M1 task group implements `Card`, `Rank`, `Suit`, `Rng`, `isCard`, `assertCards`, `createDeck`, `shuffleDeck`, `evaluateHand`, `compareHands`, and typed `EngineError`s. Table state, dealing/betting, pots, timeouts, events, and per-seat views below remain targets for the following engine groups. No network contract has changed.
+
+- `createDeck()` returns a fresh rank-major deck (`2c, 2d, 2h, 2s, ... As`).
+- `Rng = (upperExclusive: number) => number` returns an integer in `[0, upperExclusive)`. `shuffleDeck(deck, rng)` copies its input, rejects invalid or duplicate cards and invalid RNG results, and applies descending Fisher–Yates. It accepts smaller unique card sets for tests, too. Repeating the same random stream reproduces the shuffle; the engine owns no entropy source. The production adapter lives in `apps/server/src/random.ts` and calls Node's unbiased `crypto.randomInt`.
+- `evaluateHand(cards)` accepts five, six, or seven distinct canonical cards and returns `{ category, score, bestFive }`. It enumerates the at-most-21 five-card subsets. A base-15 score orders category followed by all relevant kickers; higher wins. Royals are ace-high straight flushes. `compareHands(left, right)` returns -1, 0, or 1; equal ranks tie regardless of suits or unused cards.
+- `bestFive` is a new tuple in canonical rank-descending, suit-order (`c, d, h, s`) order. Suit ordering only makes the representative deterministic; it never affects the score. Equal-scoring subsets choose the first canonical subset, so input permutation cannot change the result. Inputs are never mutated, and returned subsets contain no cards outside the input.
+- Invalid calls throw `EngineError` with `INVALID_CARD`, `DUPLICATE_CARD`, `INVALID_HAND`, or `INVALID_RNG`. The server must still validate inbound messages with shared schemas before calling any engine API.
+
+Validation: `pnpm test:engine:coverage` enforces >=90% per-file lines, statements, branches, and functions. `pnpm test:engine:exhaustive` checks every five-card combination against independent combinatorial counts and verifies category score ranges. Both run in CI. The 10,000-seed shuffle checks and 10,000 best-of-seven property checks are not full-hand betting simulations; those remain part of the later M1 acceptance criteria.
+
 ## Conventions
 - Card: string `rank + suit`, ranks `23456789TJQKA`, suits `cdhs`. Example `"As"`, `"Td"`.
 - Chips: non-negative integers.

@@ -13,11 +13,14 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:engine:coverage": "vitest run packages/engine --coverage",
+    "test:engine:exhaustive": "vitest run --config vitest.exhaustive.config.ts",
     "build": "pnpm typecheck && pnpm -r build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
     "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "3.2.7",
     "eslint": "^9.39.0",
     "fast-check": "^4.3.0",
     "globals": "^16.5.0",

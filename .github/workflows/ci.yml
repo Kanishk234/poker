@@ -16,5 +16,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm test:engine:coverage
+      - run: pnpm test:engine:exhaustive
       - run: pnpm build
       - run: pnpm audit --prod --audit-level high

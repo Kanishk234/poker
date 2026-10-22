@@ -12,6 +12,7 @@
     "@colyseus/core": "0.17.55",
     "@colyseus/ws-transport": "0.17.13",
     "@felt/shared": "workspace:*",
+    "@felt/engine": "workspace:*",
     "express": "^5.1.0",
     "tsx": "^4.20.0"
   },

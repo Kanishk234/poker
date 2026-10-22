@@ -20,6 +20,8 @@ docs/           Specs. Keep them in sync with code.
 pnpm install
 pnpm dev          # web + server
 pnpm test         # vitest, all packages
+pnpm test:engine:coverage    # engine tests + 90% per-file coverage gate
+pnpm test:engine:exhaustive  # all 2,598,960 five-card combinations
 pnpm typecheck
 pnpm lint
 pnpm build

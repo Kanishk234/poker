@@ -18,8 +18,8 @@ Local validation (2026-10-22): typecheck, lint, six tests, production build, and
 **Accept:** `pnpm dev` starts both; the web page shows "connected" after joining the server room; CI is green.
 
 ## M1 - Engine (spec: 03-GAME-ENGINE)
-- [ ] Cards, deck, injected RNG, Fisher-Yates shuffle (CSPRNG adapter for prod)
-- [ ] Hand evaluator (best 5 of 7) with tests incl. wheel and kickers
+- [x] Cards, deck, injected RNG, Fisher-Yates shuffle (CSPRNG adapter for prod)
+- [x] Hand evaluator (best 5 of 7) with tests incl. wheel and kickers
 - [ ] Table state, seating, button/blinds (incl. heads-up rules)
 - [ ] Betting rounds: legal actions, min-raise tracking, all-in handling, reopen logic
 - [ ] Street progression, run-out when all-in, showdown
@@ -30,6 +30,8 @@ Local validation (2026-10-22): typecheck, lint, six tests, production build, and
 - [ ] Fuzz/property tests (conservation, termination, determinism, no leaks)
 - [ ] (Optional/slow) 7-card category distribution test
 
+First M1 task group (2026-10-22): cards, shuffling, evaluation, and server CSPRNG adapter implemented. 39 quick tests pass repo-wide; current engine modules have 100% lines/branches/functions/statements coverage. Property tests cover 10,000 seeded shuffles and 10,000 best-of-seven inputs. An exhaustive audit of all 2,598,960 five-card combinations matches category frequencies and distinct rank counts. These are foundation tests, not the 10,000 complete-hand simulations required below. Table state/betting/pots/views and full M1 acceptance remain unfinished.
+
 **Accept:** all unit + property tests pass; fuzz of 10,000 seeded hands has zero invariant violations; hidden-info test passes; coverage >= 90% for the engine.
 
 ## M2 - Table UI with fixtures (spec: 05-DESIGN-MOBILE)
@@ -39,7 +41,8 @@ Local validation (2026-10-22): typecheck, lint, six tests, production build, and
 - [x] Timer ring, status tags, "you" at bottom rotation
 - [x] Safe areas, `100dvh`, overscroll/touch rules, 16px inputs
 - [x] Landing and Create Table screens (no backend yet)
-- [ ] Hands-on real iPhone check via deployed or tunneled URL (device access unavailable in this session)
+- [x] Phone loads the HTTPS preview and matches the browser design (user confirmed)
+- [ ] Hands-on real iPhone interaction check (safe areas, raise controls, and installed PWA)
 
 M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 players at both 390x844 and 320x844 (80 layouts): no horizontal scroll, no opponent-seat or board overlap, >=44px interactive targets. Also checked raise presets/bounds, typed amounts, dialog Escape/focus restoration, code validation, local name persistence, selected create settings, and desktop layout. Screenshots visually reviewed. Typecheck, lint, ten tests, build, and production dependency audit pass; JS bundle ~88 KB gzipped. No new dependencies. WebKit is not installed; Safari and physical iPhone acceptance remain unverified.
 
