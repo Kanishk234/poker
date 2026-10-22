@@ -64,6 +64,8 @@ export function viewFor(state: TableState, viewer: number | 'spectator') {
       own && viewer !== 'spectator'
         ? {
             seat: viewer,
+            pendingSitOut: own.sitOutNext || own.timeoutCount >= 2,
+            leavingAfterHand: own.leavePending,
             holeCards:
               hand?.playerIds[viewer] === own.id && hand?.holeCards[viewer]
                 ? ([...hand.holeCards[viewer]!] as [Card, Card])

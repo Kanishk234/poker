@@ -3,7 +3,6 @@ export { viewFor, eventsFor } from './views.js';
 export {
   createTable,
   seatPlayer,
-  removePlayer,
   totalChips,
   type TableConfig,
   type TableState,
@@ -25,9 +24,17 @@ export {
 export {
   startHand,
   applyAction,
+  applyTimeout,
   type HandEvent,
   type HandResult,
 } from './hand.js';
+export {
+  joinTable,
+  leaveTable,
+  removePlayer,
+  rebuy,
+  setSittingOut,
+} from './participants.js';
 export {
   buildPots,
   splitPot,

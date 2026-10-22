@@ -3,6 +3,7 @@
 Work top to bottom. Each milestone has tasks (checkboxes) and **acceptance criteria**. Give Codex one milestone (or one task group) at a time. M1 (engine) and M2 (static UI) are independent and can run in parallel.
 
 ## M0 - Scaffold
+
 - [x] pnpm workspace: `apps/web`, `apps/server`, `packages/engine`, `packages/shared`, `packages/stats`
 - [x] TypeScript strict base config, path aliases, project references
 - [x] ESLint + Prettier, Vitest (+ fast-check) set up in all packages
@@ -18,14 +19,15 @@ Local validation (2026-10-22): typecheck, lint, six tests, production build, and
 **Accept:** `pnpm dev` starts both; the web page shows "connected" after joining the server room; CI is green.
 
 ## M1 - Engine (spec: 03-GAME-ENGINE)
+
 - [x] Cards, deck, injected RNG, Fisher-Yates shuffle (CSPRNG adapter for prod)
 - [x] Hand evaluator (best 5 of 7) with tests incl. wheel and kickers
 - [x] Table state, seating, button/blinds (incl. heads-up rules)
 - [x] Betting rounds: legal actions, min-raise tracking, all-in handling, reopen logic
 - [x] Street progression, run-out when all-in, showdown
 - [x] Pots: main/side pots, uncalled return, split pots, odd chip
-- [ ] Timeouts, sit-out, busted/rebuy, leave mid-hand
-- [ ] Events emitted for every state change
+- [x] Timeouts, sit-out, busted/rebuy, leave mid-hand
+- [x] Events emitted for every state change
 - [x] `viewFor` with strict hidden-info handling
 - [x] Fuzz/property tests (conservation, termination, determinism, no leaks)
 - [ ] (Optional/slow) 7-card category distribution test
@@ -38,7 +40,10 @@ Second M1 task group: implemented immutable seating/configuration, button rotati
 
 Third M1 checkpoint: complete dealing/street progression, all-in runouts, side-pot settlement, uncalled returns, split/odd chips, showdown and fold-win privacy. Recipient-specific views/events bind retained hole cards to player and hand identity, protecting seat reuse and stale private events. 10,000 complete seeded hands conserve chips through payout, terminate, reproduce identically and pass hidden-card checks for every recipient at every step. Coverage remains above the 90% per-file gate. Participant timeouts/departure/rebuy and complete command events remain to finish M1.
 
+Final M1 checkpoint: added due-deadline timeout handling, consecutive-timeout sit-out, manual sit-out/in, safe between-hand rebuys, waiting arrivals, and deferred departures (all-in eligibility retained through settlement). Eventful participant commands cover seating, preference changes, top-ups and exact stack withdrawals. Kept state-only helpers for compatibility. Unit tests cover chip accounting, turn/deadline preservation, pending departures, all-in leavers and stale private payloads. The full 10,000-hand conservation/determinism/termination/privacy suite and >=90% per-file coverage gate remain mandatory CI checks. UI and multiplayer wiring are still M3; optional seven-card enumeration is not part of the completed acceptance scope.
+
 ## M2 - Table UI with fixtures (spec: 05-DESIGN-MOBILE)
+
 - [x] `/dev/table` route with fixture `TableView`s (preflop, flop, all-in, showdown, 2/6/9 players)
 - [x] Card, Seat, Board, Pot, TopBar components
 - [x] ActionBar + RaiseSheet (slider, quick buttons, clamping)
@@ -53,6 +58,7 @@ M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 player
 **Accept:** at a 390x844 viewport there is no horizontal scroll, controls are >= 44px, 9-seat layout doesn't overlap, and it feels good on a real iPhone via the deployed or tunneled dev URL.
 
 ## M3 - Multiplayer wiring (spec: 04-PROTOCOL)
+
 - [ ] Shared zod schemas for all messages; `TableView`/`TableEvent` types
 - [ ] `POST /api/tables`, invite code generation, `/t/:code` join flow
 - [ ] Table room: validates intents, calls engine, broadcasts per-seat `update` with `seq`
@@ -65,6 +71,7 @@ M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 player
 **Accept:** two phones (or phone + browser) can create, join via link, and play full hands to showdown with correct pots.
 
 ## M4 - Resilience and host tools
+
 - [ ] Reconnect (token, `allowReconnection`), resync on gap, reconnect on `visibilitychange`/`online`
 - [ ] Connection banner and `connected` flags in seats
 - [ ] Two-timeout auto sit-out, rebuy flow
@@ -76,6 +83,7 @@ M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 player
 **Accept:** lock the phone mid-hand for 30s, unlock, and you are back with the correct state; a stuck or disconnected player never blocks a hand.
 
 ## M5 - Accounts and persistence
+
 - [ ] Supabase project, schema + migrations, row-level security
 - [ ] Guest (anonymous) auth, upgrade to email/OAuth
 - [ ] Persist `HandRecord` at hand end (async, retry on failure)
@@ -84,6 +92,7 @@ M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 player
 **Accept:** a guest upgrades to an account and their past hands/stats follow them; DB outage doesn't interrupt live play.
 
 ## M6 - Stats and review (spec: 06-STATS)
+
 - [ ] `packages/stats` implementations with tests for every stat
 - [ ] Session recap screen
 - [ ] Hand history list + step-through replay
@@ -93,6 +102,7 @@ M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 player
 **Accept:** stats match hand-computed values on fixture histories; replay never shows other players' un-shown cards.
 
 ## M7 - Polish and launch (free web launch)
+
 - [ ] Sound effects (user-gesture unlock), reduced-motion support
 - [ ] "Add to Home Screen" coaching, update prompt, offline screen
 - [ ] Wake lock while seated
@@ -103,6 +113,7 @@ M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 player
 **Accept:** a new friend can open the link and be seated in under 30s; Lighthouse PWA/perf checks pass reasonable thresholds.
 
 ## M8 - Later / optional
+
 - [ ] Web push turn notifications (installed PWA only)
 - [ ] Learning assist overlay (06-STATS)
 - [ ] Bots to fill seats
@@ -111,6 +122,7 @@ M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 player
 - [ ] More variants (only if the engine stayed clean)
 
 ## Working agreement with the agent
+
 - One milestone or task group per session. Stop at the acceptance criteria.
 - Tick boxes in this file as you finish. Add new tasks you discover under the right milestone.
 - Record any spec ambiguity you resolved in `docs/DECISIONS.md`.

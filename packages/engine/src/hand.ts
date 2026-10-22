@@ -4,12 +4,14 @@ import {
   applyAction as applyBettingAction,
   advanceBettingRound,
   startBettingRound,
+  getLegalActions,
   type Action,
   type BettingEvent,
 } from './betting.js';
 import { buildPots, splitPot, type Pot, type UncalledReturn } from './pots.js';
 import {
   copyTable,
+  assertSeat,
   type PlayerSeat,
   type Street,
   type TableState,
@@ -42,7 +44,24 @@ export type HandEvent =
       shares: { seat: number; amount: number }[];
     }
   | { type: 'playerBusted'; seat: number }
-  | { type: 'handEnded'; handId: string };
+  | { type: 'handEnded'; handId: string }
+  | { type: 'playerSeated'; seat: number; playerId: string; amount: number }
+  | { type: 'playerRemoved'; seat: number; amount: number }
+  | { type: 'playerLeaving'; seat: number }
+  | { type: 'playerRebought'; seat: number; amount: number }
+  | {
+      type: 'playerSitOutChanged';
+      seat: number;
+      sittingOut: boolean;
+      appliesNextHand: boolean;
+    }
+  | {
+      type: 'playerTimedOut';
+      seat: number;
+      action: 'check' | 'fold';
+      consecutive: number;
+    }
+  | { type: 'timeoutFold'; seat: number };
 export interface HandResult {
   state: TableState;
   events: HandEvent[];
@@ -136,9 +155,22 @@ function settle(state: TableState, events: HandEvent[]): void {
       seat.bet = 0;
       seat.committed = 0;
       if (hand.holeCards[seat.seat]) {
-        seat.status = seat.stack === 0 ? 'busted' : 'waiting';
+        seat.status =
+          seat.stack === 0
+            ? 'busted'
+            : seat.sitOutNext || seat.timeoutCount >= 2
+              ? 'sitting_out'
+              : 'waiting';
         if (seat.status === 'busted')
           events.push({ type: 'playerBusted', seat: seat.seat });
+      }
+      if (seat.leavePending) {
+        state.seats[seat.seat] = null;
+        events.push({
+          type: 'playerRemoved',
+          seat: seat.seat,
+          amount: seat.stack,
+        });
       }
     }
   events.push({ type: 'handEnded', handId: hand.id });
@@ -148,7 +180,15 @@ function settle(state: TableState, events: HandEvent[]): void {
 function progress(result: HandResult): HandResult {
   let state = result.state;
   const events = result.events;
-  while (state.round?.completion) {
+  while (state.round) {
+    if (!state.round.completion) {
+      const actor = state.seats[state.round.actor!]!;
+      if (!actor.leavePending) break;
+      const folded = applyBettingAction(state, actor.seat, { type: 'fold' });
+      state = folded.state;
+      events.push(...folded.events);
+      continue;
+    }
     if (state.round.completion === 'matched') {
       const next = advanceBettingRound(state);
       state = next.state;
@@ -238,14 +278,102 @@ export function applyAction(
   action: Action,
   now = state.hand?.now ?? 0,
 ): HandResult {
+  return performAction(state, seat, action, now, false);
+}
+function performAction(
+  state: TableState,
+  seat: number,
+  action: Action,
+  now: number,
+  timedOut: boolean,
+): HandResult {
   assertTime(state, now);
   const result = applyBettingAction(state, seat, action);
+  result.state.seats[seat]!.timeoutCount = timedOut
+    ? state.seats[seat]!.timeoutCount + 1
+    : 0;
   if (!state.hand) return result;
   result.state.hand!.actionNumber++;
-  return schedule(
-    progress({ state: result.state, events: [...result.events] }),
+  const events: HandEvent[] = [...result.events];
+  if (timedOut) {
+    events.unshift({
+      type: 'playerTimedOut',
+      seat,
+      action: action.type as 'check' | 'fold',
+      consecutive: result.state.seats[seat]!.timeoutCount,
+    });
+    if (action.type === 'fold') events.push({ type: 'timeoutFold', seat });
+  }
+  return schedule(progress({ state: result.state, events }), now);
+}
+
+export function applyTimeout(
+  state: TableState,
+  seat: number,
+  now: number,
+): HandResult {
+  assertTime(state, now);
+  const legal = getLegalActions(state, seat);
+  if (!legal)
+    throw new EngineError('NOT_YOUR_TURN', 'This seat cannot time out now.');
+  if (
+    !state.hand ||
+    state.hand.deadlineMs === null ||
+    now < state.hand.deadlineMs
+  )
+    throw new EngineError(
+      'TIMEOUT_NOT_DUE',
+      'The current action deadline has not expired.',
+    );
+  return performAction(
+    state,
+    seat,
+    { type: legal.canCheck ? 'check' : 'fold' },
     now,
+    true,
   );
+}
+
+export function leaveHand(
+  state: TableState,
+  seat: number,
+  now = state.hand?.now ?? 0,
+): HandResult {
+  assertSeat(state, seat);
+  assertTime(state, now);
+  if (state.round && !state.hand)
+    throw new EngineError(
+      'HAND_IN_PROGRESS',
+      'A low-level betting round must be settled first.',
+    );
+  const next = copyTable(state);
+  const player = next.seats[seat];
+  if (!player) return { state: next, events: [] };
+  if (
+    !next.round ||
+    !next.hand?.holeCards[seat] ||
+    next.hand.playerIds[seat] !== player.id
+  ) {
+    next.seats[seat] = null;
+    return {
+      state: next,
+      events: [{ type: 'playerRemoved', seat, amount: player.stack }],
+    };
+  }
+  player.leavePending = true;
+  next.hand.actionNumber++;
+  const result = progress({
+    state: next,
+    events: [{ type: 'playerLeaving', seat }],
+  });
+  const sameTurn =
+    result.state.round?.actor === state.round?.actor &&
+    result.state.round?.street === state.round?.street;
+  if (sameTurn) {
+    result.state.hand!.now = now;
+    return result;
+  }
+  return schedule(result, now);
 }
 
 function assertTime(state: TableState, now: number): void {

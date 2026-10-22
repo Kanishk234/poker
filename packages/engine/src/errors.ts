@@ -16,7 +16,8 @@ export type EngineErrorCode =
   | 'ROUND_NOT_COMPLETE'
   | 'INVALID_POT'
   | 'INVALID_STATE'
-  | 'INVALID_TIME';
+  | 'INVALID_TIME'
+  | 'TIMEOUT_NOT_DUE';
 
 export class EngineError extends Error {
   constructor(

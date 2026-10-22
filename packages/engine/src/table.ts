@@ -22,6 +22,9 @@ export interface PlayerSeat {
   /** Hand-total contribution, INCLUDING the current street's bet. */
   committed: number;
   status: PlayerStatus;
+  timeoutCount: number;
+  sitOutNext: boolean;
+  leavePending: boolean;
 }
 export type Street = 'preflop' | 'flop' | 'turn' | 'river';
 export type RoundCompletion = 'matched' | 'uncontested' | 'runout' | 'showdown';
@@ -34,7 +37,7 @@ export interface BettingRound {
   actedAtBet: (number | null)[];
   completion: RoundCompletion | null;
 }
-/** Internal engine state. Never serialize this to a client; viewFor comes in a later group. */
+/** Internal engine state. Never serialize this to a client; use viewFor. */
 export interface TableState {
   config: TableConfig;
   seats: (PlayerSeat | null)[];
@@ -151,7 +154,8 @@ export function seatPlayer(
   if (
     !Number.isSafeInteger(buyIn) ||
     buyIn < state.config.minBuyIn ||
-    buyIn > state.config.maxBuyIn
+    buyIn > state.config.maxBuyIn ||
+    !Number.isSafeInteger(totalChips(state) + buyIn)
   )
     throw new EngineError('BAD_BUY_IN', 'Buy-in is outside table limits.');
   const next = copyTable(state);
@@ -163,19 +167,10 @@ export function seatPlayer(
     bet: 0,
     committed: 0,
     status: 'waiting',
+    timeoutCount: 0,
+    sitOutNext: false,
+    leavePending: false,
   };
-  return next;
-}
-
-export function removePlayer(state: TableState, seat: number): TableState {
-  assertSeat(state, seat);
-  if (state.round)
-    throw new EngineError(
-      'HAND_IN_PROGRESS',
-      'Settle the hand before removing a player.',
-    );
-  const next = copyTable(state);
-  next.seats[seat] = null;
   return next;
 }
 

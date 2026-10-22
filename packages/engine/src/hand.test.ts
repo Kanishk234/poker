@@ -299,6 +299,9 @@ describe('pot arithmetic', () => {
     bet: 0,
     committed,
     status: folded ? 'folded' : 'allin',
+    timeoutCount: 0,
+    sitOutNext: false,
+    leavePending: false,
   });
   it('uses contributor count for uncalled returns rather than the number of eligible winners', () => {
     expect(buildPots([seat(0, 100), seat(1, 100, true)])).toEqual({
@@ -330,6 +333,7 @@ describe('pot arithmetic', () => {
       buildPots([seat(0, 100, true), seat(1, 100, true)]),
     ).toThrowError(expect.objectContaining({ code: 'INVALID_POT' }));
     const invalid: [number, number[], number, number][] = [
+      [Number.MAX_SAFE_INTEGER + 1, [0], 0, 2],
       [-1, [0], 0, 2],
       [NaN, [0], 0, 2],
       [10, [], 0, 2],

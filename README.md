@@ -6,18 +6,18 @@ Play-money Texas Hold'em for friends. Mobile-first web app (PWA) with a clean ta
 
 ## Docs
 
-| Doc | What it covers |
-| --- | --- |
-| [AGENTS.md](./AGENTS.md) | Rules and workflow for Codex / AI agents. **Read first.** |
-| [docs/01-PRODUCT.md](./docs/01-PRODUCT.md) | Vision, scope, non-goals, user stories |
-| [docs/02-ARCHITECTURE.md](./docs/02-ARCHITECTURE.md) | Stack, repo layout, data flow, key decisions |
-| [docs/03-GAME-ENGINE.md](./docs/03-GAME-ENGINE.md) | Poker rules spec, engine API, test plan |
-| [docs/04-PROTOCOL.md](./docs/04-PROTOCOL.md) | Client/server messages and the hidden-info rule |
-| [docs/05-DESIGN-MOBILE.md](./docs/05-DESIGN-MOBILE.md) | UI layout, interaction, PWA and iOS checklist |
-| [docs/06-STATS.md](./docs/06-STATS.md) | Stat definitions, hand history schema, live assist |
-| [docs/07-ROADMAP.md](./docs/07-ROADMAP.md) | Milestones M0-M8 with task checklists |
-| [docs/08-DEPLOYMENT.md](./docs/08-DEPLOYMENT.md) | Free hosting setup, env vars, CI, security |
-| [docs/DECISIONS.md](./docs/DECISIONS.md) | Running log of decisions (append as you go) |
+| Doc                                                    | What it covers                                            |
+| ------------------------------------------------------ | --------------------------------------------------------- |
+| [AGENTS.md](./AGENTS.md)                               | Rules and workflow for Codex / AI agents. **Read first.** |
+| [docs/01-PRODUCT.md](./docs/01-PRODUCT.md)             | Vision, scope, non-goals, user stories                    |
+| [docs/02-ARCHITECTURE.md](./docs/02-ARCHITECTURE.md)   | Stack, repo layout, data flow, key decisions              |
+| [docs/03-GAME-ENGINE.md](./docs/03-GAME-ENGINE.md)     | Poker rules spec, engine API, test plan                   |
+| [docs/04-PROTOCOL.md](./docs/04-PROTOCOL.md)           | Client/server messages and the hidden-info rule           |
+| [docs/05-DESIGN-MOBILE.md](./docs/05-DESIGN-MOBILE.md) | UI layout, interaction, PWA and iOS checklist             |
+| [docs/06-STATS.md](./docs/06-STATS.md)                 | Stat definitions, hand history schema, live assist        |
+| [docs/07-ROADMAP.md](./docs/07-ROADMAP.md)             | Milestones M0-M8 with task checklists                     |
+| [docs/08-DEPLOYMENT.md](./docs/08-DEPLOYMENT.md)       | Free hosting setup, env vars, CI, security                |
+| [docs/DECISIONS.md](./docs/DECISIONS.md)               | Running log of decisions (append as you go)               |
 
 ## Stack (short)
 
@@ -37,7 +37,7 @@ Open `http://localhost:5173` for the landing page, `/create` for the table setup
 
 M0 is the workspace and connection scaffold. M2 adds a static table UI: select preflop, flop, all-in, showdown, or another player's turn, with 2–9 seats. `/dev/table?scene=flop&players=9` opens a crowded sample. The create form carries supported stack/blind/timer settings into the preview. Names are remembered locally; code entry validates format only. Actions show feedback without altering fixtures. Timers are frozen sample displays.
 
-The preview works without a game server. The engine now deals and plays complete hands, including betting, all-in runouts, main/side pots, uncalled returns, split pots, and recipient-safe card views. Participant commands are still being completed. Private rooms, real joining and live server timers are not wired yet; the UI still uses fixtures. The stats package is still empty. No protocol messages changed in M1/M2; server bootstrap tests still cover the M0 transport probe.
+The preview works without a game server. M1's pure engine now deals and plays complete hands, including betting, all-in runouts, main/side pots, uncalled returns, split pots, recipient-safe views/events, deadline-based timeout actions, sit-out, rebuys and deferred departures. Private rooms, real joining and live server timers are not wired yet; the UI still uses fixtures. The stats package is still empty. No protocol messages changed in M1/M2; server bootstrap tests still cover the M0 transport probe.
 
 `localhost` links open only on the computer running the app. For a temporary phone-accessible HTTPS preview, run `pnpm --filter @felt/web build`, then `pnpm --filter @felt/web exec vite preview --host 127.0.0.1 --port 4173 --strictPort`. In another terminal run `cloudflared tunnel --url http://127.0.0.1:4173 --http-host-header localhost:4173`. Open the printed HTTPS URL on the phone. Install `cloudflared` using [Cloudflare's instructions](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/). The tunnel serves the built UI only, needs both processes running, and anyone with its URL can access the preview. This is for testing; persistent hosting remains a launch task.
 

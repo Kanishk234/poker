@@ -17,6 +17,15 @@ export interface PotBreakdown {
 /** Pure contribution slicing. A single contributor is uncalled; a single eligible winner is not. */
 export function buildPots(seats: readonly (PlayerSeat | null)[]): PotBreakdown {
   if (
+    !Number.isSafeInteger(
+      seats.reduce((sum, seat) => sum + (seat?.committed ?? 0), 0),
+    )
+  )
+    throw new EngineError(
+      'INVALID_POT',
+      'Total contributions exceed safe integer precision.',
+    );
+  if (
     seats.some(
       (seat) =>
         seat && (!Number.isSafeInteger(seat.committed) || seat.committed < 0),
