@@ -13,7 +13,10 @@ export type EngineErrorCode =
   | 'NOT_ENOUGH_PLAYERS'
   | 'NOT_YOUR_TURN'
   | 'ILLEGAL_ACTION'
-  | 'ROUND_NOT_COMPLETE';
+  | 'ROUND_NOT_COMPLETE'
+  | 'INVALID_POT'
+  | 'INVALID_STATE'
+  | 'INVALID_TIME';
 
 export class EngineError extends Error {
   constructor(

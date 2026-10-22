@@ -4,7 +4,7 @@ Package: `packages/engine`. Pure TypeScript, no I/O, deterministic given an inje
 
 ## Implementation status — cards and evaluation
 
-The first M1 task group implements `Card`, `Rank`, `Suit`, `Rng`, `isCard`, `assertCards`, `createDeck`, `shuffleDeck`, `evaluateHand`, `compareHands`, and typed `EngineError`s. The second adds table/seating state and the betting API described below. Card dealing, board runouts, pot awards, timeouts, and per-seat views remain targets for following groups. No network contract has changed.
+Cards, shuffling, evaluation, table/seating state, betting, complete hand progression, pot settlement and recipient-safe views are implemented. Timeout and departure/rebuy commands remain in progress. These APIs are not wired to the network yet; the UI still uses fixtures. No network contract has changed.
 
 - `createDeck()` returns a fresh rank-major deck (`2c, 2d, 2h, 2s, ... As`).
 - `Rng = (upperExclusive: number) => number` returns an integer in `[0, upperExclusive)`. `shuffleDeck(deck, rng)` copies its input, rejects invalid or duplicate cards and invalid RNG results, and applies descending Fisher–Yates. It accepts smaller unique card sets for tests, too. Repeating the same random stream reproduces the shuffle; the engine owns no entropy source. The production adapter lives in `apps/server/src/random.ts` and calls Node's unbiased `crypto.randomInt`.
@@ -49,6 +49,18 @@ viewFor(state, seat | 'spectator'): TableView     // the ONLY thing sent to clie
 `Action = { type: 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'allin', amount?: number }`.
 `bet`/`raise` use `amount = raiseTo`. The engine normalizes (a `raise` with nothing to call is a `bet`).
 
+### Complete-hand implementation
+
+`startHand(state, rng, now = 0)` deals two cards in clockwise passes starting left of the button, with a fresh shuffled deck. Root `applyAction(state, seat, action, now = previousInjectedTime)` automatically progresses matched streets, burning before 3/1/1 board cards, runs out all-ins, evaluates showdown, and settles the hand. A fold win stops immediately without additional board cards or revealing hole cards. Low-level betting helpers remain available for isolated rules tests; use the complete-hand API for gameplay.
+
+State retains a settled hand for display/history until the next hand starts, but its round is cleared and all bets/contributions are zero after payout. Hand IDs increment deterministically; turn IDs include the hand ID and action number. `now` is an injected nonnegative safe-integer timestamp, defaults to a test clock of zero, and is never read from the system. Active turns receive `now + actionSeconds * 1000` deadlines; settled hands have no deadline. Each participating seat's player ID is retained with the hole cards so seat reuse cannot expose another player's cards.
+
+`viewFor(state, viewer)` constructs fresh public fields explicitly. It never returns the deck, burns, RNG, internal hand state or action-tracking arrays. Opponent cards remain hidden except for revealed showdown hands; fold wins reveal nothing. Own cards are authorized by both seat and player ID. Spectators receive no private hand. Transport metadata such as room ID, connectivity and host identity will be added by the M3 adapter/shared contract.
+
+Private event filtering is separate and mandatory: build each recipient's payload with `{ view: viewFor(state, viewer), events: eventsFor(events, viewer, state) }`. `eventsFor` filters private deal events by seat, player ID and hand ID, and copies nested event data. Never broadcast or log raw engine state/events. Completed pot amounts are retained internally for history but are absent from the live view after chips are awarded; during betting, view pots contain prior-street contributions while seats carry current bets.
+
+`buildPots` slices all distinct contribution levels and merges adjacent pots with identical eligibility. `splitPot` allocates integer shares clockwise left of the dealer. Hand settlement emits showdown, uncalled return, pot award, busted-player and hand-ended events. Busted players remain seated with zero chips. The complete-hand fuzz test plays 10,000 seeded hands twice, checks conservation through payout and bounded termination, and scans every seat/spectator view and filtered event at every step for hidden cards.
+
 ```ts
 type TableConfig = {
   maxSeats: number; smallBlind: number; bigBlind: number;
@@ -87,10 +99,10 @@ type TableConfig = {
 ## Pots
 - Track each player's total contribution for the hand (`committed`).
 - **Side pot algorithm** at showdown/award time:
-  1. Collect distinct `committed` levels of players who are all-in (and the max).
+  1. Collect all distinct positive `committed` levels (including folded contributions) in ascending order.
   2. For each level `L` ascending, form a pot: each player contributes `min(committed, L) - previousLevel`. Eligible winners = non-folded players with `committed >= L`.
   3. Folded players' chips stay in the pots they contributed to but they are not eligible.
-  4. If a top pot has only one eligible player (excess uncalled chips), **return** it to that player (not a win).
+  4. If a layer has only one **contributor**, **return** those uncalled chips to that contributor (not a win). A pot with multiple contributors but one eligible winner includes called/folded money and is awarded as a win. A fold win awards all matched money to the remaining live player, separately returning any unmatched top contribution.
 - Award each pot to the best hand(s) among its eligible players. Ties split equally; **odd chips go to the first winner left of the button**, one chip at a time.
 - Example: three players go all-in with stacks 100 / 300 / 500. Main pot = 300 (100 x 3), eligible: all three. Side pot 1 = 400 ((300 - 100) x 2), eligible: the 300 and 500 players. The remaining 200 from the 500 player was never called, so it is returned to them.
 

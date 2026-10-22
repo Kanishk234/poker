@@ -22,12 +22,12 @@ Local validation (2026-10-22): typecheck, lint, six tests, production build, and
 - [x] Hand evaluator (best 5 of 7) with tests incl. wheel and kickers
 - [x] Table state, seating, button/blinds (incl. heads-up rules)
 - [x] Betting rounds: legal actions, min-raise tracking, all-in handling, reopen logic
-- [ ] Street progression, run-out when all-in, showdown
-- [ ] Pots: main/side pots, uncalled return, split pots, odd chip
+- [x] Street progression, run-out when all-in, showdown
+- [x] Pots: main/side pots, uncalled return, split pots, odd chip
 - [ ] Timeouts, sit-out, busted/rebuy, leave mid-hand
 - [ ] Events emitted for every state change
-- [ ] `viewFor` with strict hidden-info handling
-- [ ] Fuzz/property tests (conservation, termination, determinism, no leaks)
+- [x] `viewFor` with strict hidden-info handling
+- [x] Fuzz/property tests (conservation, termination, determinism, no leaks)
 - [ ] (Optional/slow) 7-card category distribution test
 
 First M1 task group (2026-10-22): cards, shuffling, evaluation, and server CSPRNG adapter implemented. 39 quick tests pass repo-wide; current engine modules have 100% lines/branches/functions/statements coverage. Property tests cover 10,000 seeded shuffles and 10,000 best-of-seven inputs. An exhaustive audit of all 2,598,960 five-card combinations matches category frequencies and distinct rank counts. These are foundation tests, not the 10,000 complete-hand simulations required below. Table state/betting/pots/views and full M1 acceptance remain unfinished.
@@ -35,6 +35,8 @@ First M1 task group (2026-10-22): cards, shuffling, evaluation, and server CSPRN
 Second M1 task group: implemented immutable seating/configuration, button rotation, heads-up and short blinds, betting actions, all-in calls, minimum raises, per-player cumulative reopening, and betting-street completion boundaries. Added 10,000 seeded betting simulations covering legal-action acceptance, chip conservation, nonnegative integer ledgers, immutability, bounded termination, and deterministic states/events. 78 quick tests pass; engine lines/branches/functions/statements coverage is 100%; typecheck, lint, exhaustive evaluator audit, build, and production dependency audit pass. No cards are dealt or pots awarded by these simulations; complete hand/lifecycle and hidden-info acceptance remain open. No new dependencies or network contract changes.
 
 **Accept:** all unit + property tests pass; fuzz of 10,000 seeded hands has zero invariant violations; hidden-info test passes; coverage >= 90% for the engine.
+
+Third M1 checkpoint: complete dealing/street progression, all-in runouts, side-pot settlement, uncalled returns, split/odd chips, showdown and fold-win privacy. Recipient-specific views/events bind retained hole cards to player and hand identity, protecting seat reuse and stale private events. 10,000 complete seeded hands conserve chips through payout, terminate, reproduce identically and pass hidden-card checks for every recipient at every step. Coverage remains above the 90% per-file gate. Participant timeouts/departure/rebuy and complete command events remain to finish M1.
 
 ## M2 - Table UI with fixtures (spec: 05-DESIGN-MOBILE)
 - [x] `/dev/table` route with fixture `TableView`s (preflop, flop, all-in, showdown, 2/6/9 players)

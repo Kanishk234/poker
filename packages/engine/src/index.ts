@@ -1,4 +1,5 @@
 export { EngineError, type EngineErrorCode } from './errors.js';
+export { viewFor, eventsFor } from './views.js';
 export {
   createTable,
   seatPlayer,
@@ -16,12 +17,24 @@ export {
   startBettingRound,
   advanceBettingRound,
   getLegalActions,
-  applyAction,
   type Action,
   type LegalActions,
   type BettingEvent,
   type BettingResult,
 } from './betting.js';
+export {
+  startHand,
+  applyAction,
+  type HandEvent,
+  type HandResult,
+} from './hand.js';
+export {
+  buildPots,
+  splitPot,
+  type Pot,
+  type PotBreakdown,
+  type UncalledReturn,
+} from './pots.js';
 export {
   RANKS,
   SUITS,

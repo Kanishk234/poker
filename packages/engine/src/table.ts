@@ -1,4 +1,6 @@
 import { EngineError } from './errors.js';
+import type { Card } from './cards.js';
+import type { Pot } from './pots.js';
 
 export interface TableConfig {
   maxSeats: number;
@@ -38,6 +40,22 @@ export interface TableState {
   seats: (PlayerSeat | null)[];
   dealerSeat: number | null;
   round: BettingRound | null;
+  handNumber: number;
+  hand: HandState | null;
+}
+export interface HandState {
+  id: string;
+  deck: Card[];
+  burned: Card[];
+  board: Card[];
+  holeCards: ([Card, Card] | null)[];
+  playerIds: (string | null)[];
+  revealedSeats: number[];
+  pots: Pot[];
+  settled: boolean;
+  actionNumber: number;
+  now: number;
+  deadlineMs: number | null;
 }
 
 const positiveInteger = (value: number) =>
@@ -66,6 +84,8 @@ export function createTable(config: TableConfig): TableState {
     seats: Array.from({ length: config.maxSeats }, () => null),
     dealerSeat: null,
     round: null,
+    handNumber: 0,
+    hand: null,
   };
 }
 
@@ -79,6 +99,24 @@ export function copyTable(state: TableState): TableState {
     config: { ...state.config },
     seats: state.seats.map((seat) => (seat ? { ...seat } : null)),
     dealerSeat: state.dealerSeat,
+    handNumber: state.handNumber,
+    hand: state.hand
+      ? {
+          ...state.hand,
+          deck: [...state.hand.deck],
+          burned: [...state.hand.burned],
+          board: [...state.hand.board],
+          holeCards: state.hand.holeCards.map((cards) =>
+            cards ? ([...cards] as [Card, Card]) : null,
+          ),
+          playerIds: [...state.hand.playerIds],
+          revealedSeats: [...state.hand.revealedSeats],
+          pots: state.hand.pots.map((pot) => ({
+            ...pot,
+            eligibleSeats: [...pot.eligibleSeats],
+          })),
+        }
+      : null,
     round: state.round
       ? {
           ...state.round,
