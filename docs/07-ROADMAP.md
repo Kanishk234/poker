@@ -13,7 +13,7 @@ Work top to bottom. Each milestone has tasks (checkboxes) and **acceptance crite
 - [x] GitHub Actions CI: install, typecheck, lint, test, build
 - [x] `.env.example`, `.gitignore`, update README/AGENTS command sections if needed
 
-Local validation (2026-10-22): typecheck, lint, six tests, production build, and production dependency audit pass. Headless Chromium at 390x844 verifies Connected, no horizontal scroll, >=44px controls, and failed connection followed by successful retry. Desktop screenshot reviewed. GitHub CI status must be confirmed after push; real iPhone testing remains part of M2/M7.
+Local validation (2026-10-22): typecheck, lint, six tests, production build, and production dependency audit pass. Headless Chromium at 390x844 verifies Connected, no horizontal scroll, >=44px controls, and failed connection followed by successful retry. Desktop screenshot reviewed. GitHub CI for scaffold commit `2ed7916` passed; real iPhone testing remains part of M2/M7.
 
 **Accept:** `pnpm dev` starts both; the web page shows "connected" after joining the server room; CI is green.
 
@@ -33,12 +33,15 @@ Local validation (2026-10-22): typecheck, lint, six tests, production build, and
 **Accept:** all unit + property tests pass; fuzz of 10,000 seeded hands has zero invariant violations; hidden-info test passes; coverage >= 90% for the engine.
 
 ## M2 - Table UI with fixtures (spec: 05-DESIGN-MOBILE)
-- [ ] `/dev/table` route with fixture `TableView`s (preflop, flop, all-in, showdown, 2/6/9 players)
-- [ ] Card, Seat, Board, Pot, TopBar components
-- [ ] ActionBar + RaiseSheet (slider, quick buttons, clamping)
-- [ ] Timer ring, status tags, "you" at bottom rotation
-- [ ] Safe areas, `100dvh`, overscroll/touch rules, 16px inputs
-- [ ] Landing and Create Table screens (no backend yet)
+- [x] `/dev/table` route with fixture `TableView`s (preflop, flop, all-in, showdown, 2/6/9 players)
+- [x] Card, Seat, Board, Pot, TopBar components
+- [x] ActionBar + RaiseSheet (slider, quick buttons, clamping)
+- [x] Timer ring, status tags, "you" at bottom rotation
+- [x] Safe areas, `100dvh`, overscroll/touch rules, 16px inputs
+- [x] Landing and Create Table screens (no backend yet)
+- [ ] Hands-on real iPhone check via deployed or tunneled URL (device access unavailable in this session)
+
+M2 validation (2026-10-22): Chromium covers all five scenarios with 2–9 players at both 390x844 and 320x844 (80 layouts): no horizontal scroll, no opponent-seat or board overlap, >=44px interactive targets. Also checked raise presets/bounds, typed amounts, dialog Escape/focus restoration, code validation, local name persistence, selected create settings, and desktop layout. Screenshots visually reviewed. Typecheck, lint, ten tests, build, and production dependency audit pass; JS bundle ~88 KB gzipped. No new dependencies. WebKit is not installed; Safari and physical iPhone acceptance remain unverified.
 
 **Accept:** at a 390x844 viewport there is no horizontal scroll, controls are >= 44px, 9-seat layout doesn't overlap, and it feels good on a real iPhone via the deployed or tunneled dev URL.
 

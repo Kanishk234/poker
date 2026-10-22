@@ -2,20 +2,20 @@
 
 ## Look and feel
 - **Clean and calm.** Few colors, generous spacing, one accent color for the primary action. Reference apps for *inspiration only*; all assets and visuals must be original.
-- Neutral felt background, high-contrast cards, readable at arm's length.
+- Nearly black background, charcoal controls, high-contrast rounded cards, readable at arm's length. The user chose Offsuit as the primary aesthetic reference; use its restrained visual principles with original branding, artwork, and code.
 - Information hierarchy on the table: your cards > pot > whose turn > opponent stacks > everything else.
 - Nothing decorative that costs frames. Animations are short (150-300ms) and skippable.
 
 ### Suggested tokens (adjust freely)
 ```
---bg:        #0f1a16   /* table background */
---felt:      #17332a
---surface:   #1e2a26   /* panels */
---text:      #f2f5f3
---muted:     #93a39c
---accent:    #f5c451   /* primary action, turn highlight */
---danger:    #e5594f   /* fold */
---success:   #4cc38a
+--bg:        #08090b   /* open table canvas */
+--surface:   #202125   /* controls */
+--sheet:     #16171b   /* bottom sheets */
+--text:      #f5f5f7
+--muted:     #a9a9b3
+--accent:    #c4b5fd   /* primary action, turn highlight */
+--card:      #faf9f6
+--red-suit:  #c33e4b
 radius: 14px; tap target >= 44px; font: system UI stack; numerals tabular
 ```
 Respect both light/dark system settings only if cheap; dark-first is fine for v1.
@@ -38,7 +38,7 @@ Respect both light/dark system settings only if cheap; dark-first is fine for v1
 │ [Fold] [Call 40] [Raise] │  action bar in thumb zone
 └──────────────────────────┘
 ```
-- Support 2-9 seats with preset seat coordinates per player count; **you are always at the bottom** (rotate seat indices client-side).
+- Support 2-9 seats with preset seat coordinates per player count; **you are always at the bottom** (rotate seat indices client-side). M2 uses an open canvas without a decorative oval outline; compact opponent monograms surround the board and your larger cards sit above the action bar.
 - Action bar appears only on your turn (otherwise show a quiet status like "Waiting for Sam").
 - Raise opens a bottom sheet: slider + quick buttons (Min, 1/2 pot, 3/4 pot, Pot, All-in) + big confirm. Show "raise to" amounts clearly. Slider steps in big-blind increments; clamp to `minRaiseTo..maxRaiseTo` from `you.legal`.
 - Turn timer: thin ring or bar around the active seat; haptic-free feedback (sound + visual) since iOS Safari has no Vibration API.
@@ -46,7 +46,7 @@ Respect both light/dark system settings only if cheap; dark-first is fine for v1
 
 ## Screens
 1. **Landing:** "Create table" / "Join with code". Name field (remembered).
-2. **Create table:** stack, blinds, timer, seats. Big "Create & copy link".
+2. **Create table:** stack, blinds, timer, seats. In M2, "Preview table" opens fixtures with the chosen settings. In M3, create a real room and show its code with a copy-link convenience.
 3. **Lobby/table:** the table itself; empty seats show "Sit"; host can start; share-link button.
 4. **Hand history drawer:** list of recent hands, tap to replay (later: M6).
 5. **Review tab (M6):** session recap, stats, leaderboard.
@@ -55,6 +55,12 @@ Respect both light/dark system settings only if cheap; dark-first is fine for v1
 ## Components (suggested)
 `TopBar`, `Table`, `Seat`, `BoardCards`, `Card`, `Pot`, `ChipStack`, `ActionBar`, `RaiseSheet`, `TimerRing`, `ChatDrawer`, `ConnectionBanner`, `ShareSheet`.
 Game state in the UI = the latest `update.view` (single source of truth) + local UI state (sheet open, slider value). Don't re-implement rules in the client.
+
+### M2 implementation status
+
+`/dev/table` consumes explicit view-only fixtures under `apps/web/src/table`; no engine or network gameplay rules run in the browser. Sample actions display their selected intent and keep the fixture unchanged. The turn ring is frozen at 60% remaining so previews don't time out. All-in runout and showdown are separate samples; opponent cards remain hidden until the showdown sample. Other players in the showdown sample are folded.
+
+The landing page offers Create table, Join with code, and a sample-table link. Names are stored locally when storage is available. Code validation is format-only; it never claims to join a room. Native modal dialogs trap focus, support Escape, and restore focus to their opener. Raising supports typed chips, a slider, and presets; values snap to big-blind increments and clamp to supplied legal bounds, retaining an exact off-step all-in amount.
 
 ## Animation
 Driven by `events` from each `update`: deal, chips to pot, pot to winner, board reveal. Queue events and play them in order; if the tab was backgrounded, **skip to the latest view** instead of replaying a backlog.

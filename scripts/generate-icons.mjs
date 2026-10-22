@@ -52,7 +52,7 @@ for (const size of [180, 192, 512]) {
     for (let x = 0; x < size; x++) {
       const offset = y * (size * 3 + 1) + 1 + x * 3;
       raw.set(
-        inside(x / size, y / size) ? [245, 196, 81] : [23, 51, 42],
+        inside(x / size, y / size) ? [196, 181, 253] : [8, 9, 11],
         offset,
       );
     }

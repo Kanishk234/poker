@@ -33,9 +33,11 @@ pnpm dev        # web + server
 pnpm test
 ```
 
-Open `http://localhost:5173`. The shell shows **Connected** after receiving the game server's validated greeting. The server runs on port 2567; `http://localhost:2567/health` reports its status. Stop both with Ctrl+C.
+Open `http://localhost:5173` for the landing page, `/create` for the table setup preview, or `/dev/table` for sample hands. The server runs on port 2567; `http://localhost:2567/health` reports its status. Stop both with Ctrl+C.
 
-M0 is the workspace and connection scaffold. Poker rules, private tables, and code/link admission are not implemented yet. The roadmap tracks the remaining work. Engine and stats packages are intentionally empty until their milestones.
+M0 is the workspace and connection scaffold. M2 adds a static table UI: select preflop, flop, all-in, showdown, or another player's turn, with 2–9 seats. `/dev/table?scene=flop&players=9` opens a crowded sample. The create form carries supported stack/blind/timer settings into the preview. Names are remembered locally; code entry validates format only. Actions show feedback without altering fixtures. Timers are frozen sample displays.
+
+The preview works without a game server. Poker rules, private rooms, real joining, and live timers are not implemented yet. Engine and stats packages are intentionally empty until their milestones. No protocol messages changed in M2; server bootstrap tests still cover the M0 transport probe.
 
 Local defaults work without env files. Copy each app's `.env.example` to `.env` to override them. Phone testing on your LAN also requires adding the web origin (for example `http://192.168.1.10:5173`) to the server's `ALLOWED_ORIGINS`. A deployed web build must set `VITE_SERVER_URL` to its game server URL.
 
