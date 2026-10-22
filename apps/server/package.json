@@ -1,0 +1,22 @@
+{
+  "name": "@felt/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "build": "tsc -b",
+    "start": "tsx --env-file-if-exists=.env src/index.ts"
+  },
+  "dependencies": {
+    "@colyseus/core": "0.17.55",
+    "@colyseus/ws-transport": "0.17.13",
+    "@felt/shared": "workspace:*",
+    "express": "^5.1.0",
+    "tsx": "^4.20.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@colyseus/sdk": "0.17.43"
+  }
+}
