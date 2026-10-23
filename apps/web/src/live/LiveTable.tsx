@@ -63,14 +63,14 @@ export function LiveTable({ code, name }: { code: string; name: string }) {
             : 'Pulling up a chair.'}
         </h1>
         <p className="intro" role="status">
-          {error || `Connecting to room ${code}…`}
+          {error ||
+            (status === 'waking'
+              ? 'Waking up the server… Your table will open shortly.'
+              : `Connecting to room ${code}…`)}
         </p>
         {status === 'closed' && (
           <>
-            <button
-              className="button primary"
-              onClick={() => location.reload()}
-            >
+            <button className="button primary" onClick={connection.retry}>
               Try again
             </button>
             <a className="button secondary" href="/">
@@ -126,13 +126,29 @@ export function LiveTable({ code, name }: { code: string; name: string }) {
   return (
     <main className="table-screen live-table">
       <TopBar code={code} onInfo={() => setSheet('info')} />
+      {status !== 'connected' && (
+        <div className="connection-banner" role="status">
+          <span>
+            {status === 'closed'
+              ? 'Connection paused. Try reconnecting to your seat.'
+              : 'Reconnecting… Your seat is held while we catch up.'}
+          </span>
+          {status === 'closed' && (
+            <button className="button secondary" onClick={connection.retry}>
+              Reconnect
+            </button>
+          )}
+        </div>
+      )}
       <div className="live-toolbar">
         <span
           className={`connection-dot ${status !== 'connected' ? 'offline' : ''}`}
         >
           {status === 'connected'
             ? `${occupied} / ${count} seated`
-            : 'Connection closed'}
+            : status === 'closed'
+              ? 'Disconnected'
+              : 'Reconnecting…'}
         </span>
         <button className="text-link" onClick={() => setSheet('chat')}>
           Chat{connection.chat.length ? ` (${connection.chat.length})` : ''}
@@ -344,7 +360,7 @@ export function LiveTable({ code, name }: { code: string; name: string }) {
         >
           {error ||
             (status === 'closed'
-              ? 'Connection closed. Refresh to rejoin.'
+              ? 'Connection paused. Use Reconnect above to try again.'
               : busy
                 ? 'Sending…'
                 : 'Play money. Good company.')}
@@ -482,7 +498,14 @@ export function LiveTable({ code, name }: { code: string; name: string }) {
                 </button>
               </>
             )}
-            <a className="button secondary" href="/">
+            <a
+              className="button secondary"
+              href="/"
+              onClick={(event) => {
+                event.preventDefault();
+                void connection.leave().finally(() => location.assign('/'));
+              }}
+            >
               Leave table
             </a>
           </div>

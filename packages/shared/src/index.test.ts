@@ -7,9 +7,41 @@ import {
   roomCodeSchema,
   ROOM_CODE_ALPHABET,
   createTableSchema,
+  reconnectSchema,
+  savedSessionSchema,
 } from './index.js';
 
 describe('gameplay protocol', () => {
+  it('validates private reconnect credentials without accepting forged options or old versions', () => {
+    const token = 'secure_session_token';
+    expect(
+      reconnectSchema.safeParse({ reconnectionToken: token }).success,
+    ).toBe(true);
+    for (const payload of [
+      { reconnectionToken: token, playerId: 'forged' },
+      { reconnectionToken: '' },
+      { reconnectionToken: 'x'.repeat(129) },
+      { reconnectionToken: '../other-room' },
+    ])
+      expect(reconnectSchema.safeParse(payload).success).toBe(false);
+    const saved = {
+      protocol: PROTOCOL_VERSION,
+      code: 'ABCDEF',
+      playerId: 'player-1',
+      reconnectionToken: `room-1:${token}`,
+    };
+    expect(savedSessionSchema.safeParse(saved).success).toBe(true);
+    expect(
+      savedSessionSchema.safeParse({ ...saved, protocol: PROTOCOL_VERSION - 1 })
+        .success,
+    ).toBe(false);
+    expect(
+      savedSessionSchema.safeParse({
+        ...saved,
+        reconnectionToken: 'https://another-host/token',
+      }).success,
+    ).toBe(false);
+  });
   it('validates every intent and rejects forged identity, fractional chips, unknown fields and unbounded input', () => {
     const valid = {
       sit: { seat: 0, buyIn: 100 },

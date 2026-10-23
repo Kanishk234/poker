@@ -20,6 +20,7 @@ import {
   intentSchemas,
   joinSchema,
   PROTOCOL_VERSION,
+  RECONNECT_GRACE_SECONDS,
   updateSchema,
   type IntentMap,
   type IntentType,
@@ -49,6 +50,10 @@ export class TableRoom extends Room {
   private cancelTimer: (() => void) | undefined;
   private idleTimer: (() => void) | undefined;
   private chatAt = new Map<string, number>();
+  private dropped = new Map<
+    string,
+    { handId: string | null; reject: () => void; cancel?: () => void }
+  >();
 
   onCreate(options: CreateOptions): void {
     this.table = createTable(options.config);
@@ -129,15 +134,46 @@ export class TableRoom extends Room {
       this.creatorToken = null;
     }
     this.idleTimer?.();
+    this.welcome(client, visitor);
+    this.publish([]);
+  }
+
+  onDrop(client: Client): void {
+    if (!this.visitors.has(client.sessionId)) return;
+    const reservation = this.allowReconnection(client, 'manual');
+    void reservation.catch(() => {
+      /* Colyseus calls onLeave when the reservation expires. */
+    });
+    this.dropped.set(client.sessionId, {
+      handId: this.table.round ? this.table.hand!.id : null,
+      reject: () => reservation.reject(),
+    });
+    // Membership changes must not reset the actor's existing deadline.
+    this.publish([]);
+  }
+
+  onReconnect(client: Client): void {
+    const visitor = this.visitors.get(client.sessionId);
+    if (!visitor) throw new ServerError(403, 'SESSION_EXPIRED');
+    this.dropped.get(client.sessionId)?.cancel?.();
+    this.dropped.delete(client.sessionId);
+    this.welcome(client, visitor);
+    this.publish([]);
+  }
+
+  private welcome(client: Client, visitor: Visitor): void {
     client.send('welcome', {
       protocol: PROTOCOL_VERSION,
       playerId: visitor.id,
+      reconnectGraceSeconds: RECONNECT_GRACE_SECONDS,
     });
-    this.publish([]);
   }
 
   onLeave(client: Client): void {
     const visitor = this.visitors.get(client.sessionId);
+    if (!visitor) return;
+    this.dropped.get(client.sessionId)?.cancel?.();
+    this.dropped.delete(client.sessionId);
     this.visitors.delete(client.sessionId);
     this.chatAt.delete(client.sessionId);
     let events: HandEvent[] = [];
@@ -159,6 +195,11 @@ export class TableRoom extends Room {
   onDispose(): void {
     this.cancelTimer?.();
     this.idleTimer?.();
+    for (const reservation of this.dropped.values()) {
+      reservation.cancel?.();
+      reservation.reject();
+    }
+    this.dropped.clear();
   }
 
   private intent<K extends IntentType>(
@@ -238,7 +279,11 @@ export class TableRoom extends Room {
   private sendUpdate(client: Client, events: readonly HandEvent[]): void {
     const viewer = this.viewer(client);
     const view = viewFor(this.table, viewer);
-    const online = new Set([...this.visitors.values()].map((v) => v.id));
+    const online = new Set(
+      this.clients
+        .filter((c) => !this.dropped.has(c.sessionId))
+        .map((c) => this.visitors.get(c.sessionId)?.id),
+    );
     client.send(
       'update',
       updateSchema.parse({
@@ -264,6 +309,18 @@ export class TableRoom extends Room {
     );
   }
   private publish(events: readonly HandEvent[]): void {
+    for (const reservation of this.dropped.values()) {
+      if (
+        !reservation.cancel &&
+        (!this.table.round || this.table.hand?.id !== reservation.handId)
+      ) {
+        const timer = this.clock.setTimeout(
+          reservation.reject,
+          RECONNECT_GRACE_SECONDS * 1000,
+        );
+        reservation.cancel = () => timer.clear();
+      }
+    }
     this.seq++;
     for (const client of this.clients)
       if (this.visitors.has(client.sessionId)) this.sendUpdate(client, events);
@@ -279,7 +336,13 @@ export class TableRoom extends Room {
           const current = viewFor(this.table, 'spectator').turn;
           if (this.table.hand?.id !== handId || current?.turnId !== turn.turnId)
             return;
-          const result = applyTimeout(this.table, turn.seat, Date.now());
+          const now = Date.now();
+          // Colyseus uses a delta clock; wait again if its timer fires before wall time.
+          if (now < current.deadlineMs) {
+            this.schedule();
+            return;
+          }
+          const result = applyTimeout(this.table, turn.seat, now);
           this.table = result.state;
           this.publish(result.events);
           this.schedule();

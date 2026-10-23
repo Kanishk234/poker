@@ -1,10 +1,21 @@
-import { Client } from '@colyseus/sdk';
+import { Client, ErrorCode, MatchMakeError } from '@colyseus/sdk';
 import {
   createdTableSchema,
   errorSchema,
   PROTOCOL_VERSION,
   type TableConfig,
+  type SavedSession,
 } from '@felt/shared';
+import { savedSession, forgetSession } from './sessions.js';
+
+export class ConnectionError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+  ) {
+    super(message);
+  }
+}
 
 const api = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const socket =
@@ -17,11 +28,12 @@ async function request(path: string, options: RequestInit = {}) {
       ? AbortSignal.any([options.signal, AbortSignal.timeout(20000)])
       : AbortSignal.timeout(20000),
   });
-  const payload: unknown = await response.json();
+  const payload: unknown = await response.json().catch(() => null);
   if (!response.ok)
-    throw new Error(
+    throw new ConnectionError(
       errorSchema.safeParse(payload).data?.message ??
-        'Cannot reach the table. Try again.',
+        'Cannot reach the table. Trying again…',
+      response.status >= 500 || response.status === 429,
     );
   return payload;
 }
@@ -40,6 +52,7 @@ export async function connectTable(
   code: string,
   displayName: string,
   signal: AbortSignal,
+  memorySession?: SavedSession | null,
 ) {
   const result = await request(`/api/tables/${code}`, { signal });
   signal.throwIfAborted();
@@ -56,10 +69,28 @@ export async function connectTable(
   } catch {
     /* Storage may be disabled. */
   }
-  return new Client(socket).joinById(result.roomId, {
+  const client = new Client(socket);
+  const previous = memorySession ?? savedSession(code);
+  if (previous) {
+    try {
+      const room = await client.reconnect(previous.reconnectionToken);
+      return { room, playerId: previous.playerId, expired: false };
+    } catch (error) {
+      if (
+        !(error instanceof MatchMakeError) ||
+        (error.code !== ErrorCode.MATCHMAKE_EXPIRED &&
+          error.code !== ErrorCode.MATCHMAKE_INVALID_ROOM_ID)
+      )
+        throw error;
+      forgetSession(code);
+      signal.throwIfAborted();
+    }
+  }
+  const room = await client.joinById(result.roomId, {
     protocol: PROTOCOL_VERSION,
     code,
     displayName,
     ...(creatorToken ? { creatorToken } : {}),
   });
+  return { room, playerId: '', expired: !!previous };
 }

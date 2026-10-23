@@ -12,6 +12,7 @@ import {
   PROTOCOL_VERSION,
   ROOM_CODE_ALPHABET,
   roomCodeSchema,
+  reconnectSchema,
 } from '@felt/shared';
 import { TableRoom } from './table-room.js';
 
@@ -153,15 +154,28 @@ export function createGameServer(allowedOrigins: string[]): {
   gameServer.router = createRouter(
     {},
     {
-      onRequest: (request) => {
+      onRequest: async (request) => {
         if (
           new URL(request.url).pathname.startsWith('/matchmake/') &&
           (!allowedOrigins.includes(request.headers.get('origin') ?? '') ||
-            !/^\/matchmake\/joinById\/[^/]+$/.test(
+            !/^\/matchmake\/(joinById|reconnect)\/[^/]+$/.test(
               new URL(request.url).pathname,
             ))
         ) {
           return new Response(null, { status: 403 });
+        }
+        if (new URL(request.url).pathname.startsWith('/matchmake/reconnect/')) {
+          const parsed = reconnectSchema.safeParse(
+            await request
+              .clone()
+              .json()
+              .catch(() => null),
+          );
+          if (!parsed.success)
+            return Response.json(
+              { code: 400, error: 'INVALID_MESSAGE' },
+              { status: 400 },
+            );
         }
       },
     },

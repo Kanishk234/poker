@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Client, type Room } from '@colyseus/sdk';
+import { Client, CloseCode, type Room } from '@colyseus/sdk';
 import {
   createdTableSchema,
   errorSchema,
@@ -52,6 +52,7 @@ class Peer {
   latest: Update | undefined;
   history: Update[] = [];
   constructor(readonly room: Room) {
+    room.reconnection.enabled = false;
     room.onMessage('welcome', () => {});
     room.onMessage('error', () => {});
     room.onMessage('chat', () => {});
@@ -174,6 +175,126 @@ describe('multiplayer transport', () => {
     await expect(
       join(table, 0, { code: table.code === 'AAAAAA' ? 'BBBBBB' : 'AAAAAA' }),
     ).rejects.toThrow('TABLE_NOT_FOUND');
+  });
+  it('rejects malformed native reconnect options and revokes a consented departure', async () => {
+    const table = await create();
+    const host = await join(table, 0, { creatorToken: table.creatorToken });
+    const guest = await join(table, 1);
+    const token = host.room.reconnectionToken;
+    try {
+      const malformed = await fetch(
+        `${endpoint}/matchmake/reconnect/${table.roomId}`,
+        {
+          method: 'POST',
+          headers: { Origin: origin, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reconnectionToken: 'bad',
+            playerId: 'forged',
+          }),
+        },
+      );
+      expect(malformed.status).toBe(400);
+      expect(await malformed.json()).toMatchObject({
+        error: 'INVALID_MESSAGE',
+      });
+      const formerHost = host.latest!.view.hostId;
+      await host.room.leave();
+      const update = await guest.until(
+        (u) => !!u.view.hostId && u.view.hostId !== formerHost,
+      );
+      expect(update.view.hostId).not.toBe(formerHost);
+      await expect(
+        new Client(endpoint, { headers: { Origin: origin } }).reconnect(token),
+      ).rejects.toThrow();
+    } finally {
+      await guest.room.leave();
+    }
+  });
+  it('restores a dropped session with its seat, host role, cards and original deadline', async () => {
+    const table = await create();
+    let host = await join(table, 0, { creatorToken: table.creatorToken });
+    const guest = await join(table, 1);
+    try {
+      host.send('sit', { seat: 0, buyIn: 500 });
+      guest.send('sit', { seat: 1, buyIn: 500 });
+      await host.until((u) => u.view.seats.filter(Boolean).length === 2);
+      host.send('host', { op: 'start' });
+      const before = await host.until((u) => u.view.phase === 'preflop');
+      const token = host.room.reconnectionToken;
+      const sessionId = host.room.sessionId;
+      host.room.connection.close(CloseCode.MAY_TRY_RECONNECT);
+      const offline = await guest.until(
+        (u) => u.view.seats[0]?.connected === false,
+      );
+      expect(offline.view.turn?.deadlineMs).toBe(before.view.turn?.deadlineMs);
+      expect(offline.view.hostId).toBe(before.view.hostId);
+      expect(offline.view.seats[0]?.cards).toBe('hidden');
+      await expect(
+        new Client(endpoint, { headers: { Origin: origin } }).reconnect(
+          `${table.roomId}:AAAAAAAAAAAAAA`,
+        ),
+      ).rejects.toThrow();
+      const restored = new Peer(
+        await new Client(endpoint, { headers: { Origin: origin } }).reconnect(
+          token,
+        ),
+      );
+      host = restored;
+      restored.send('resync', { lastSeq: 0 });
+      const after = await restored.until(
+        (u) => u.view.seats[0]?.connected === true,
+      );
+      expect(restored.room.sessionId).toBe(sessionId);
+      expect(restored.room.reconnectionToken).not.toBe(token);
+      expect(after.view.you).toEqual(before.view.you);
+      expect(after.view.turn).toEqual(before.view.turn);
+      expect(after.view.hostId).toBe(before.view.hostId);
+      expect(after.view.seats.map((s) => s?.stack)).toEqual(
+        before.view.seats.map((s) => s?.stack),
+      );
+      expect(after.events).toEqual([]);
+      await expect(
+        new Client(endpoint, { headers: { Origin: origin } }).reconnect(token),
+      ).rejects.toThrow();
+    } finally {
+      await host.room.leave();
+      await guest.room.leave();
+    }
+  });
+  it('keeps deadlines running while disconnected and resumes after the timeout with current chips', async () => {
+    const table = await create();
+    let host = await join(table, 0, { creatorToken: table.creatorToken });
+    const guest = await join(table, 1);
+    try {
+      host.send('sit', { seat: 0, buyIn: 500 });
+      guest.send('sit', { seat: 1, buyIn: 500 });
+      await host.until((u) => u.view.seats.filter(Boolean).length === 2);
+      host.send('host', { op: 'start' });
+      await host.until((u) => u.view.phase === 'preflop');
+      const token = host.room.reconnectionToken;
+      host.room.connection.close(CloseCode.MAY_TRY_RECONNECT);
+      await guest.until((u) => u.view.seats[0]?.connected === false);
+      const ended = await guest.until((u) => u.view.phase === 'handOver');
+      expect(ended.events.some((e) => e.type === 'timeoutFold')).toBe(true);
+      host = new Peer(
+        await new Client(endpoint, { headers: { Origin: origin } }).reconnect(
+          token,
+        ),
+      );
+      host.send('resync', { lastSeq: 0 });
+      const after = await host.until((u) => u.view.you?.seat === 0);
+      expect(
+        after.view.seats.reduce(
+          (sum, s) => sum + (s?.stack ?? 0) + (s?.bet ?? 0),
+          0,
+        ),
+      ).toBe(1000);
+      expect(after.view.handNumber).toBe(1);
+      expect(after.events).toEqual([]);
+    } finally {
+      await host.room.leave();
+      await guest.room.leave();
+    }
   });
   it('plays a three-client hand to showdown with private views, exact chips and stale-tap rejection', async () => {
     const table = await create();

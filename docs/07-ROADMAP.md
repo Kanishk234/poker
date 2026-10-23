@@ -74,13 +74,15 @@ M3 validation (2026-10-22): three real WebSocket clients play through showdown w
 
 ## M4 - Resilience and host tools
 
-- [ ] Reconnect (token, `allowReconnection`), resync on gap, reconnect on `visibilitychange`/`online`
-- [ ] Connection banner and `connected` flags in seats
+- [x] Reconnect (token, `allowReconnection`), resync on gap, reconnect on `visibilitychange`/`online`
+- [x] Connection banner and `connected` flags in seats
 - [ ] Two-timeout auto sit-out, rebuy flow
 - [ ] Host controls: kick, pause/resume, change blinds/timer for next hand
 - [ ] Rate limiting, message size limits, chat sanitization
 - [ ] Voided-hand recovery after server restart (restore last-hand stacks)
-- [ ] Cold-start UX: "Waking up the server..." state
+- [x] Cold-start UX: "Waking up the server..." state
+
+First M4 task group: protocol v3 adds authenticated session recovery. Keep disconnected seats and host identity through the hand plus a 60-second grace period; timers continue, and token rotation prevents stale credentials from reclaiming a seat. The browser persists per-tab credentials, restores after refresh, retries with backoff, resyncs on visibility/online and disables intents until a fresh snapshot arrives. Initial transient failures show a waking-server state. Explicit Leave table revokes recovery and transfers host access. Server tests verify private-card/stack/deadline preservation, forged/stale token rejection and timeout progression while disconnected. Mobile Chromium at 390x844 verifies refresh, 30 seconds offline, recovery, literal-text status and >=44px controls; physical iPhone lock/unlock remains unverified. Host tools, general rate limiting and restart recovery remain open.
 
 **Accept:** lock the phone mid-hand for 30s, unlock, and you are back with the correct state; a stuck or disconnected player never blocks a hand.
 

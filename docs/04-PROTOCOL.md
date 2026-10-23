@@ -2,13 +2,13 @@
 
 Transport: Colyseus room `table` over WebSocket. The zod schemas and inferred types in `packages/shared/src/index.ts` are the executable contract. Bump `PROTOCOL_VERSION` when changing the wire contract. Mismatched clients receive `VERSION_MISMATCH` and must refresh.
 
-## Implementation status — M3, protocol 2
+## Implementation status — M4 recovery, protocol 3
 
-Version **2** replaces the v1 hello probe with live private tables. All inbound intents reject unknown fields and malformed values. Outgoing views/events are schema-checked after filtering for each recipient. There is no public raw engine state or event broadcast.
+Version **3** extends M3's live private tables with session recovery and a reconnect-grace value in `welcome`. All inbound intents reject unknown fields and malformed values. Outgoing views/events are schema-checked after filtering for each recipient. There is no public raw engine state or event broadcast.
 
-Browser origins must appear in `ALLOWED_ORIGINS` for HTTP creation/lookup, matchmaking and WebSocket upgrades. HTTP JSON and WebSocket messages are limited to 4 KiB. Only `joinById` matchmaking is exposed; public room creation/listing is disabled. Unlisted rooms expire after ten minutes empty, and disposal cleans the code registry.
+Browser origins must appear in `ALLOWED_ORIGINS` for HTTP creation/lookup, matchmaking and WebSocket upgrades. Inbound HTTP JSON and WebSocket messages are limited to 4 KiB. Only `joinById` and authenticated `reconnect` matchmaking are exposed; public room creation/listing is disabled. Unlisted rooms expire after ten minutes empty, and disposal cleans the code registry. Pending reconnect reservations count as visitors until final departure.
 
-Guest identity is currently scoped to the connection. Disconnect/refresh leaves through the engine's safe withdrawal command. Session tokens, automatic seat restoration and reconnect grace remain M4. Chat has a one-message-per-second throttle; general token-bucket limits and host management remain M4.
+Dropped connections now preserve their player identity, seat and host role through `allowReconnection`. Refresh uses the same private credential. Voluntary departure or reservation expiry uses the engine's safe withdrawal command. Chat has a one-message-per-second throttle; general token-bucket limits and host management remain later M4 task groups.
 
 ## Creating and joining
 
@@ -16,8 +16,8 @@ Guest identity is currently scoped to the connection. Disconnect/refresh leaves 
 - Config: `{ maxSeats: 2..9, smallBlind, bigBlind, minBuyIn, maxBuyIn, actionSeconds: 5..120, assistAllowed }`. Chip values are positive safe integers. Small blind < big blind; min buy-in <= max buy-in; max buy-in covers the big blind and preserves safe total-table arithmetic.
 - Codes contain six uniformly random characters from `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (30 bits), using Node crypto. Collisions are retried before room creation. Codes are the main join flow; `/t/:code` links are a convenience.
 - `GET /api/tables/:code` returns `{ code, roomId }`, or `TABLE_NOT_FOUND` (404). Never returns the creator credential or game state.
-- Join through SDK `joinById(roomId, { protocol: 2, code, displayName, creatorToken? })`. Names are trimmed, 1–24 characters. Wrong code: `TABLE_NOT_FOUND`; mismatched protocol: `VERSION_MISMATCH`; other malformed join options: `INVALID_MESSAGE`.
-- The server assigns a random player ID and sends `welcome: { protocol: 2, playerId }`. Clients cannot choose a player ID, own another seat, or specify which player performs an action.
+- Join through SDK `joinById(roomId, { protocol: 3, code, displayName, creatorToken? })`. Names are trimmed, 1–24 characters. Wrong code: `TABLE_NOT_FOUND`; mismatched protocol: `VERSION_MISMATCH`; other malformed join options: `INVALID_MESSAGE`.
+- The server assigns a random player ID and sends `welcome: { protocol: 3, playerId, reconnectGraceSeconds: 60 }`, including after reconnect. Clients cannot choose a player ID, own another seat, or specify which player performs an action.
 - Only the first connection presenting the random UUID `creatorToken` becomes host. The browser keeps this credential in sessionStorage, never in a link or public view. The host role transfers to a remaining connected visitor when the host leaves. Names stored in localStorage are preferences, not credentials.
 - Creating/joining does not automatically seat or start anyone. Pick a seat and buy-in; the host starts with at least two eligible players. Subsequent hands start five seconds after settlement when at least two players are ready. The host can deal sooner.
 
@@ -111,9 +111,21 @@ type SeatView = {
 
 Build every recipient view using engine `viewFor(state, seat|'spectator')`; separately filter events using `eventsFor(events, viewer, state)`. Other players' cards stay `'hidden'` until revealed at showdown. Deck, burns, folded opponents' cards, internal state and other players' private deals never reach clients. Retained cards/events are bound to both player and hand identity to protect seat reuse. Engine property tests and a real three-client server integration test run in CI.
 
-## M4 targets — not implemented
+## Reconnection and cold starts
 
-- Hold disconnected seats for the hand plus a 60-second `allowReconnection` grace period. Keep action timers running.
-- Issue random session credentials for guest identity restoration. Reconnect on visibility/online/socket-close with backoff and a visible banner, then send a fresh snapshot.
+- On a non-consented drop, reserve the same Colyseus session with `allowReconnection`. Keep the seat, cards, chips and host identity; mark the seat disconnected in other players' snapshots. Disconnect/reconnect must not reset an existing action deadline.
+- Hold the reservation through the currently active hand, then for 60 seconds after it ends. Between hands, the 60-second grace begins immediately. Timers continue to check/fold; two consecutive timeouts still sit a player out. A grace expiry triggers final departure, host transfer and chip withdrawal through the engine.
+- The SDK's random reconnect token is the identity credential. Browser sessionStorage holds a strictly validated `{ protocol, code, playerId, reconnectionToken }` for each room; memory provides same-page recovery if storage is unavailable. Never put tokens in URLs, public messages or logs. SessionStorage isolates unrelated tabs; a new tab joins as a new guest.
+- Refresh calls SDK `reconnect(room.reconnectionToken)`. Its native matchmaking body `{ reconnectionToken }` is validated with a shared strict schema before Colyseus authenticates the reservation. Successful recovery keeps the original player/session IDs and rotates the token; old tokens fail.
+- On reconnect, send welcome plus a fresh recipient-specific snapshot with empty historical events. The browser also requests resync, updates its server-time offset and enables actions only after receiving a valid current view. Never queue or replay old poker intents.
+- Retry with exponential delay, capped at four seconds, up to 25 attempts or a 90-second elapsed retry budget (an in-flight request has its own 20-second timeout). `online` wakes a pending retry. On visible/online, request a fresh snapshot; if a supposedly live connection fails to respond within three seconds, close it for recovery.
+- Show a reconnecting banner while retaining the last view, with action controls disabled. Exhausted retries offer a manual Reconnect button. Invalid versions/malformed admission/missing rooms stop retrying. An expired reservation rejoins as a spectator and explains that a new seat is needed.
+- An initial connection taking over four seconds, or a transient server failure, shows "Waking up the server…" and retries. Missing rooms remain a terminal error rather than a permanent waking screen.
+- Explicit **Leave table** clears the local credential and sends consented departure, without reconnect grace. Normal refresh or accidental navigation preserves the reservation. Consent/expiry transfers host access; a transient drop does not.
+
+Server timer callbacks recheck the wall-time deadline before invoking the engine: Colyseus's delta clock can fire slightly early. Early callbacks are rescheduled without changing the turn's deadline.
+
+## Remaining M4 targets
+
 - Host kick/pause/resume and next-hand blind/timer changes.
 - Per-connection limits: action 10/s burst 5; chat 1/s burst 3; other intents 5/s; repeated abuse disconnects. M3 currently applies only chat's simple one-second throttle.

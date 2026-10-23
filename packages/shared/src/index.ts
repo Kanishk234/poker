@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
+export const RECONNECT_GRACE_SECONDS = 60;
 export const ROOM_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 export const roomCodeSchema = z
   .string()
@@ -10,6 +11,21 @@ const seat = z.number().int().min(0).max(8);
 const name = z.string().trim().min(1).max(24);
 const id = z.string().min(1).max(128);
 const token = z.string().uuid();
+export const reconnectSchema = z
+  .object({ reconnectionToken: z.string().regex(/^[A-Za-z0-9_-]{8,128}$/) })
+  .strict();
+export const savedSessionSchema = z
+  .object({
+    protocol: z.literal(PROTOCOL_VERSION),
+    code: roomCodeSchema,
+    playerId: id,
+    reconnectionToken: z
+      .string()
+      .max(260)
+      .regex(/^[A-Za-z0-9_-]+:[A-Za-z0-9_-]{8,128}$/),
+  })
+  .strict();
+export type SavedSession = z.infer<typeof savedSessionSchema>;
 export const tableConfigSchema = z
   .object({
     maxSeats: z.number().int().min(2).max(9),
@@ -255,7 +271,11 @@ export const updateSchema = z
   })
   .strict();
 export const welcomeSchema = z
-  .object({ protocol: z.literal(PROTOCOL_VERSION), playerId: id })
+  .object({
+    protocol: z.literal(PROTOCOL_VERSION),
+    playerId: id,
+    reconnectGraceSeconds: z.literal(RECONNECT_GRACE_SECONDS),
+  })
   .strict();
 export const chatSchema = z
   .object({ playerId: id, name, text: z.string().max(200), ts: chips })
