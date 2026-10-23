@@ -185,8 +185,15 @@ export class TableRoom extends Room {
       this.table = result.state;
       events = result.events;
     }
-    if (visitor?.id === this.hostId)
-      this.hostId = this.visitors.values().next().value?.id ?? null;
+    if (visitor.id === this.hostId) {
+      const connected = this.clients.find(
+        (c) => this.visitors.has(c.sessionId) && !this.dropped.has(c.sessionId),
+      );
+      this.hostId =
+        (connected
+          ? this.visitors.get(connected.sessionId)?.id
+          : this.visitors.values().next().value?.id) ?? null;
+    }
     this.publish(events);
     this.schedule();
     this.expireIfEmpty();

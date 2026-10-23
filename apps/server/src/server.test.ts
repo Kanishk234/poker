@@ -210,6 +210,36 @@ describe('multiplayer transport', () => {
       await guest.room.leave();
     }
   });
+  it('transfers host access to a connected visitor before a retained offline visitor', async () => {
+    const table = await create();
+    const host = await join(table, 0, { creatorToken: table.creatorToken });
+    let offline = await join(table, 1);
+    const online = await join(table, 2);
+    try {
+      for (const [index, peer] of [host, offline, online].entries()) {
+        peer.send('sit', { seat: index, buyIn: 500 });
+        await peer.until((u) => u.view.you?.seat === index);
+      }
+      const token = offline.room.reconnectionToken;
+      offline.room.connection.close(CloseCode.MAY_TRY_RECONNECT);
+      await host.until((u) => u.view.seats[1]?.connected === false);
+      const expected = online.latest!.view.seats[2]!.playerId;
+      await host.room.leave();
+      const transferred = await online.until((u) => u.view.hostId === expected);
+      expect(transferred.view.seats[2]?.isHost).toBe(true);
+      offline = new Peer(
+        await new Client(endpoint, { headers: { Origin: origin } }).reconnect(
+          token,
+        ),
+      );
+      offline.send('resync', { lastSeq: 0 });
+      const restored = await offline.until((u) => u.view.you?.seat === 1);
+      expect(restored.view.hostId).toBe(expected);
+    } finally {
+      await offline.room.leave();
+      await online.room.leave();
+    }
+  });
   it('restores a dropped session with its seat, host role, cards and original deadline', async () => {
     const table = await create();
     let host = await join(table, 0, { creatorToken: table.creatorToken });
